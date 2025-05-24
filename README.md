@@ -1,7 +1,5 @@
 # Prompt Loader
 
----
-
 ## Overview
 
 Prompts will be standard operating procedures and knowledge assets for telling your agents how to function.
