@@ -5,8 +5,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
 using PromptLoader.Utils;
-using Loader = PromptLoader.Services.PromptLoader;
-
+using Loader = PromptLoader.Services.PromptLoader; // Using the alias for clarity. 
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
@@ -16,6 +15,7 @@ var config = new ConfigurationBuilder()
 
 // Set supported prompt extensions from config
 Loader.SetSupportedExtensionsFromConfig(config);
+
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
 
@@ -42,7 +42,7 @@ var promptSetFolder = PathUtils.ResolvePromptPath(config["PromptSetFolder"] ?? "
 // var promptSets = promptSetLoader.LoadPromptSets(promptSetFolder, true);
 // var prompts = promptLoader.LoadPrompts(promptsFolder, true);
 
-var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(promptsFolder, true);   
+var prompts = Loader.LoadPrompts(promptsFolder, true);   
 var promptSets = PromptSetLoader.LoadPromptSets(promptSetFolder, true);
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
