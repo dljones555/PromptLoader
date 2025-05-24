@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Json; // Add this namespace for AddJsonFile extension method  
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
@@ -27,15 +27,16 @@ static string ResolvePromptPath(string relativePath)
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
-  .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-  .Build();
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables() // This requires the correct namespace
+    .Build();
 
 // Set supported prompt extensions from config
 PromptLoader.Services.PromptLoader.SetSupportedExtensionsFromConfig(config);
-
-var apiKey = config["OpenAI:ApiKey"];
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
+
+var apiKey = Environment.GetEnvironmentVariable("OpenAI:ApiKey") ?? config["OpenAI:ApiKey"];
 
 builder.AddOpenAIChatCompletion(
   modelId: "gpt-4-1106-preview", // or "gpt-4o" or the latest GPT-4.1 model name  
