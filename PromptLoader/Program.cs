@@ -5,6 +5,26 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
 
+// Helper to resolve prompt folder path for dev, test, and published scenarios
+static string ResolvePromptPath(string relativePath)
+{
+    // Try relative to executable (published scenario)
+    var exeDir = AppContext.BaseDirectory;
+    var exePath = Path.GetFullPath(Path.Combine(exeDir, relativePath));
+    if (Directory.Exists(exePath)) return exePath;
+
+    // Try walking up to solution root (dev/test scenario)
+    var dir = exeDir;
+    for (int i = 0; i < 5; i++) // go up max 5 levels
+    {
+        var candidate = Path.GetFullPath(Path.Combine(dir, relativePath));
+        if (Directory.Exists(candidate)) return candidate;
+        dir = Path.GetFullPath(Path.Combine(dir, ".."));
+    }
+    // Fallback to original
+    return exePath;
+}
+
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
   .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -22,13 +42,18 @@ builder.AddOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-var promptsFolder = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
+// Read prompt folders from appsettings.json and resolve them
+var promptsFolder = ResolvePromptPath(config["PromptsFolder"] ?? "Prompts");
+var promptSetFolder = ResolvePromptPath(config["PromptSetFolder"] ?? "PromptSets");
+
 var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(promptsFolder, true);
+var promptSets = PromptLoader.Services.PromptSetLoader.LoadPromptSets(promptSetFolder, true);
+
+var refundPromptSet = promptSets["CustomerService"]["Refund"];
+var salesPromptContextToPrependToUserChatHistory = PromptSetLoader.JoinPrompts(promptSets["Sales"], "Main", config);   
 
 // This is the GitHub Models format.  
-// TODO: give them feedback to add a name or id for each prompt  
-//       ask if have an API or prompt loader or have a deployment plan  
-//       with GitHub actions  
+
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
 
 // Prepare chat history with a system prompt and user/assistant pairs  

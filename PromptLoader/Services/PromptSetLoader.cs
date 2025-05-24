@@ -5,16 +5,33 @@ namespace PromptLoader.Services
 {
     public static class PromptSetLoader
     {
-        public static Dictionary<string, PromptSet> LoadPromptSets(string rootFolder)
+        // Returns a two-level dictionary: top-level folder -> (subfolder or "Main") -> PromptSet
+        public static Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(string rootFolder, bool cascadeOverride = true)
         {
-            var sets = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase);
-            foreach (var setName in Directory.GetDirectories(rootFolder))
+            var result = new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var topLevelDir in Directory.GetDirectories(rootFolder))
             {
-                var fileNameAsPrompt = Path.GetFileName(setName);
-                var prompts = PromptLoader.LoadPrompts(setName);
-                sets[setName] = new PromptSet { Name = fileNameAsPrompt, Prompts = prompts };
+                var topLevelName = Path.GetFileName(topLevelDir);
+                var subSets = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase);
+
+                // Prompts directly in the top-level folder
+                var mainPrompts = PromptLoader.LoadPrompts(topLevelDir, cascadeOverride);
+                if (mainPrompts.Count > 0)
+                {
+                    subSets["Main"] = new PromptSet { Name = "Main", Prompts = mainPrompts };
+                }
+
+                // Subfolders as sub prompt sets
+                foreach (var subDir in Directory.GetDirectories(topLevelDir))
+                {
+                    var subName = Path.GetFileName(subDir);
+                    var prompts = PromptLoader.LoadPrompts(subDir, cascadeOverride);
+                    subSets[subName] = new PromptSet { Name = subName, Prompts = prompts };
+                }
+
+                result[topLevelName] = subSets;
             }
-            return sets;
+            return result;
         }
 
         // New overload: uses PromptOrder from configuration

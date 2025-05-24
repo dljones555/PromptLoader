@@ -1,0 +1,1 @@
+﻿This are instructions for customer service agents on how to handle inquiries, manage complaints, and ensure customer satisfaction. It includes guidelines for responding to common questions, managing complaints, and ensuring customer satisfaction.

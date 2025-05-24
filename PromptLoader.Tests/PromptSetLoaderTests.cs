@@ -28,20 +28,71 @@ public class PromptSetLoaderTests
 
         var setDir = Path.Combine(tempRoot, "SetA");
         Directory.CreateDirectory(setDir);
-
-        // Create a dummy prompt file if PromptLoader.LoadPrompts expects files
-        // For this test, we mock PromptLoader.LoadPrompts via a delegate swap if possible
-        var originalLoadPrompts = typeof(PromptLoader.Services.PromptLoader)
-            .GetMethod("LoadPrompts");
-        // If LoadPrompts is static and not easily swappable, this test will only check directory logic
+        File.WriteAllText(Path.Combine(setDir, "a.prompt"), "Prompt A");
 
         // Act
         var sets = PromptSetLoader.LoadPromptSets(tempRoot);
 
         // Assert
-        Assert.Single(sets);
-        Assert.Contains(setDir, sets.Keys);
-        Assert.Equal("SetA", sets[setDir].Name);
+        Assert.Single(sets); // Only SetA
+        Assert.Contains("SetA", sets.Keys);
+        var setA = sets["SetA"];
+        Assert.Single(setA); // Only Main
+        Assert.Contains("Main", setA.Keys);
+        Assert.Equal("Main", setA["Main"].Name);
+        Assert.Contains("a", setA["Main"].Prompts.Keys);
+        Assert.Equal("Prompt A", setA["Main"].Prompts["a"].Text);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
+
+    [Fact]
+    public void LoadPromptSets_HandlesNestedPromptSets()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+
+        var customerServiceDir = Path.Combine(tempRoot, "CustomerService");
+        var refundDir = Path.Combine(customerServiceDir, "Refund");
+        var policyDir = Path.Combine(customerServiceDir, "Policy");
+        var salesDir = Path.Combine(tempRoot, "Sales");
+        Directory.CreateDirectory(refundDir);
+        Directory.CreateDirectory(policyDir);
+        Directory.CreateDirectory(salesDir);
+
+        // Create dummy prompt files with supported extensions
+        File.WriteAllText(Path.Combine(refundDir, "refund.prompt"), "Refund prompt");
+        File.WriteAllText(Path.Combine(policyDir, "policy.prompt"), "Policy prompt");
+        File.WriteAllText(Path.Combine(salesDir, "examples.prompt"), "Sales example");
+        File.WriteAllText(Path.Combine(salesDir, "instructions.prompt"), "Sales instructions");
+
+        // Act
+        var sets = PromptSetLoader.LoadPromptSets(tempRoot);
+
+        // Assert
+        Assert.Contains("CustomerService", sets.Keys);
+        Assert.Contains("Sales", sets.Keys);
+
+        // CustomerService
+        var cs = sets["CustomerService"];
+        Assert.Contains("Refund", cs.Keys);
+        Assert.Contains("Policy", cs.Keys);
+        Assert.Equal("Refund", cs["Refund"].Name);
+        Assert.Equal("Policy", cs["Policy"].Name);
+        Assert.Contains("refund", cs["Refund"].Prompts.Keys);
+        Assert.Contains("policy", cs["Policy"].Prompts.Keys);
+        Assert.Equal("Refund prompt", cs["Refund"].Prompts["refund"].Text);
+        Assert.Equal("Policy prompt", cs["Policy"].Prompts["policy"].Text);
+
+        // Sales
+        var sales = sets["Sales"];
+        Assert.Contains("Main", sales.Keys); // Prompts directly in Sales
+        Assert.Contains("examples", sales["Main"].Prompts.Keys);
+        Assert.Contains("instructions", sales["Main"].Prompts.Keys);
+        Assert.Equal("Sales example", sales["Main"].Prompts["examples"].Text);
+        Assert.Equal("Sales instructions", sales["Main"].Prompts["instructions"].Text);
 
         // Cleanup
         Directory.Delete(tempRoot, true);
@@ -65,14 +116,23 @@ public class PromptSetLoaderTests
         // Arrange
         var prompts = new Dictionary<string, Prompt>
         {
-            { "A", new Prompt("system", PromptFormat.Plain) },
-            { "B", new Prompt("instructions", PromptFormat.Plain) }
+            { "system", new Prompt("system", PromptFormat.Plain) },
+            { "instructions", new Prompt("instructions", PromptFormat.Plain) }
         };
         var set = new PromptSet { Name = "Test", Prompts = prompts };
         var sets = new Dictionary<string, PromptSet> { { "set1", set } };
-      
+
+        // Provide PromptOrder in config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions")
+        });
+        var config = configBuilder.Build();
+
         // Act
-        var result = PromptSetLoader.JoinPrompts(sets, "set1", _config);
+        var result = PromptSetLoader.JoinPrompts(sets, "set1", config);
 
         // Assert
         Assert.Equal("system" + Environment.NewLine + "instructions", result);

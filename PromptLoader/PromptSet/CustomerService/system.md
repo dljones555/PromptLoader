@@ -1,0 +1,1 @@
+﻿This is your system prompt for refund matters. It includes guidelines for processing refunds, managing customer expectations, and ensuring compliance with company policies. The system prompt sets the tone and context for the conversation, ensuring that agents are aligned with the company's values and policies regarding refunds.

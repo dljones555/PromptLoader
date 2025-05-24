@@ -1,0 +1,1 @@
+﻿This is your system prompt for customer service agents. It includes guidelines for responding to common questions, managing complaints, and ensuring customer satisfaction. The system prompt sets the tone and context for the conversation, ensuring that agents are aligned with the company's values and policies.

@@ -1,0 +1,1 @@
+﻿This is your policy for handling customer service inquiries. It includes guidelines for responding to common questions, managing complaints, and ensuring customer satisfaction.
