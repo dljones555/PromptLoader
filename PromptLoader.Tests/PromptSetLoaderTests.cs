@@ -99,6 +99,33 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
+    public void LoadPromptSets_LoadsMdFilesInMainPromptSet()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        var salesDir = Path.Combine(tempRoot, "Sales");
+        Directory.CreateDirectory(salesDir);
+        File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales example");
+        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales instructions");
+
+        // Act
+        var sets = PromptSetLoader.LoadPromptSets(tempRoot);
+
+        // Assert
+        Assert.Contains("Sales", sets.Keys);
+        var sales = sets["Sales"];
+        Assert.Contains("Main", sales.Keys);
+        Assert.Contains("examples", sales["Main"].Prompts.Keys);
+        Assert.Contains("instructions", sales["Main"].Prompts.Keys);
+        Assert.Equal("Sales example", sales["Main"].Prompts["examples"].Text);
+        Assert.Equal("Sales instructions", sales["Main"].Prompts["instructions"].Text);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
+
+    [Fact]
     public void JoinPrompts_ThrowsIfSetNotFound()
     {
         // Arrange

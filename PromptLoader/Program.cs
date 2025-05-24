@@ -30,8 +30,10 @@ var config = new ConfigurationBuilder()
   .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
   .Build();
 
-var apiKey = config["OpenAI:ApiKey"];
+// Set supported prompt extensions from config
+PromptLoader.Services.PromptLoader.SetSupportedExtensionsFromConfig(config);
 
+var apiKey = config["OpenAI:ApiKey"];
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
 
