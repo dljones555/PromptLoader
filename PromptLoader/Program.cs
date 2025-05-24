@@ -42,8 +42,8 @@ var promptSetFolder = PathUtils.ResolvePromptPath(config["PromptSetFolder"] ?? "
 // var promptSets = promptSetLoader.LoadPromptSets(promptSetFolder, true);
 // var prompts = promptLoader.LoadPrompts(promptsFolder, true);
 
-var prompts = Loader.LoadPrompts(promptsFolder, true);   
-var promptSets = PromptSetLoader.LoadPromptSets(promptSetFolder, true);
+var prompts = Loader.LoadPrompts(promptsFolder, cascadeOverride: true);   
+var promptSets = PromptSetLoader.LoadPromptSets(promptSetFolder, cascadeOverride: true);
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
 var salesPromptContext = PromptSetLoader.JoinPrompts(promptSets["Sales"], "Main", config);   
