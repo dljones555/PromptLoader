@@ -4,26 +4,9 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
+using PromptLoader.Utils;
+using Loader = PromptLoader.Services.PromptLoader;
 
-// Helper to resolve prompt folder path for dev, test, and published scenarios
-static string ResolvePromptPath(string relativePath)
-{
-    // Try relative to executable (published scenario)
-    var exeDir = AppContext.BaseDirectory;
-    var exePath = Path.GetFullPath(Path.Combine(exeDir, relativePath));
-    if (Directory.Exists(exePath)) return exePath;
-
-    // Try walking up to solution root (dev/test scenario)
-    var dir = exeDir;
-    for (int i = 0; i < 5; i++) // go up max 5 levels
-    {
-        var candidate = Path.GetFullPath(Path.Combine(dir, relativePath));
-        if (Directory.Exists(candidate)) return candidate;
-        dir = Path.GetFullPath(Path.Combine(dir, ".."));
-    }
-    // Fallback to original
-    return exePath;
-}
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
@@ -32,11 +15,16 @@ var config = new ConfigurationBuilder()
     .Build();
 
 // Set supported prompt extensions from config
-PromptLoader.Services.PromptLoader.SetSupportedExtensionsFromConfig(config);
+Loader.SetSupportedExtensionsFromConfig(config);
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
 
 var apiKey = Environment.GetEnvironmentVariable("OpenAI:ApiKey") ?? config["OpenAI:ApiKey"];
+
+if (string.IsNullOrEmpty(apiKey))
+{
+    throw new InvalidOperationException("OpenAI API key is not set. Please set it in appsettings.json or as an environment variable.");
+}
 
 builder.AddOpenAIChatCompletion(
   modelId: "gpt-4-1106-preview", // or "gpt-4o" or the latest GPT-4.1 model name  
@@ -46,25 +34,29 @@ builder.AddOpenAIChatCompletion(
 var kernel = builder.Build();
 
 // Read prompt folders from appsettings.json and resolve them
-var promptsFolder = ResolvePromptPath(config["PromptsFolder"] ?? "Prompts");
-var promptSetFolder = ResolvePromptPath(config["PromptSetFolder"] ?? "PromptSets");
+var promptsFolder = PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts");
+var promptSetFolder = PathUtils.ResolvePromptPath(config["PromptSetFolder"] ?? "PromptSets");
 
-var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(promptsFolder, true);
-var promptSets = PromptLoader.Services.PromptSetLoader.LoadPromptSets(promptSetFolder, true);
+// TODO: Make these Singletons in the DI container.
+//  
+// var promptSets = promptSetLoader.LoadPromptSets(promptSetFolder, true);
+// var prompts = promptLoader.LoadPrompts(promptsFolder, true);
+
+var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(promptsFolder, true);   
+var promptSets = PromptSetLoader.LoadPromptSets(promptSetFolder, true);
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContextToPrependToUserChatHistory = PromptSetLoader.JoinPrompts(promptSets["Sales"], "Main", config);   
+var salesPromptContext = PromptSetLoader.JoinPrompts(promptSets["Sales"], "Main", config);   
 
 // This is the GitHub Models format.  
-
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
 
 // Prepare chat history with a system prompt and user/assistant pairs  
 var chatHistory = new ChatHistory();
 chatHistory.AddSystemMessage(prompts["system"].Text);
-chatHistory.AddUserMessage("Hello, who won the world cup in 2022?");
-chatHistory.AddAssistantMessage("Argentina won the 2022 FIFA World Cup.");
-chatHistory.AddUserMessage("Who was the captain?");
+chatHistory.AddUserMessage(salesPromptContext);
+chatHistory.AddAssistantMessage("Understood. I will sale aligned to those guidelines.");
+chatHistory.AddUserMessage("I want to send a small payload into space and piggyback with other payloads. Which rocket companies can do this?");
 
 // Get the chat completion service and send the chat history  
 var chatService = kernel.GetRequiredService<IChatCompletionService>();
