@@ -1,0 +1,46 @@
+intent analyze_sales:
+  goal: "Analyze product sales data and generate trend graph visualizations"
+  metric: accuracy >= 0.90
+
+prompt_loader sales_prompts:
+  source: "azure://prompt-index"
+  queries:
+    - sales_analysis: "Analyze sales data from the provided file. Answer queries about product sales for specific months with detailed insights."
+    - sales_visualization: "Generate a line chart showing the sales trend for a specific product over time. Output the chart as a PNG image file."
+
+ui sales_dashboard:
+  type: screen
+  input:
+    product_id: string
+    month: string
+  output:
+    sales_analysis: text
+    trend_graph: image
+  feedback:
+    details: string
+    accuracy: float
+
+flow process_sales:
+  get sales_data:
+    load: "monthly_sales.json"
+    store_as: sales_file
+  ask.ai.analyze:
+    use: prompt_loader.sales_prompts.sales_analysis
+    input: sales_file
+    query: "How well did product {{product_id}} sell in {{month}}?"
+    store_as: sales_analysis
+  ask.ai.visualize:
+    use: code_interpreter
+    input: sales_file
+    query: "Graph trend for product {{product_id}} over time"
+    output: image
+    store_as: trend_graph
+  store:
+    results: [sales_analysis, trend_graph]
+    path: "azure://results/sales"
+  webhook:
+    url: "https://agentflow.api/feedback"
+    payload:
+      analysis: sales_analysis
+      visualization: trend_graph
+      feedback: ui.sales_dashboard.feedback
