@@ -12,6 +12,7 @@ namespace PromptLoader.Services
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
+        string JoinPrompts(PromptSet promptSet); // New overload
     }
 
     /// <summary>
@@ -28,6 +29,11 @@ namespace PromptLoader.Services
         public PromptService(IConfiguration config)
         {
             _config = config;
+            if (config.GetValue<bool>("AutoLoadPrompts"))
+            {
+                LoadPrompts();
+                LoadPromptSets();
+            }
         }
 
         /// <summary>
@@ -46,7 +52,6 @@ namespace PromptLoader.Services
         /// </summary>
         public Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true)
         {
-
             var promptSetFolder = PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
             EnsureSupportedExtensionsLoaded();
             PromptSets = LoadPromptSetsInternal(promptSetFolder, cascadeOverride);
@@ -60,7 +65,14 @@ namespace PromptLoader.Services
         {
             if (!promptSets.TryGetValue(setName, out var promptSet))
                 throw new KeyNotFoundException($"Prompt set '{setName}' not found.");
+            return JoinPrompts(promptSet);
+        }
 
+        /// <summary>
+        /// Joins prompts in a PromptSet according to PromptOrder in config.
+        /// </summary>
+        public string JoinPrompts(PromptSet promptSet)
+        {
             var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
             if (promptOrder != null && promptOrder.Length > 0)
             {

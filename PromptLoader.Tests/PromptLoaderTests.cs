@@ -4,16 +4,28 @@ using System.IO;
 using System.Linq;
 using Xunit;
 using PromptLoader.Services;
+using Microsoft.Extensions.Configuration;
 
 namespace PromptLoader.Tests;
 public class PromptLoaderTests : IDisposable
 {
     private readonly string _testDir;
+    private readonly IPromptService _promptService;
+    private readonly IConfiguration _config;
 
     public PromptLoaderTests()
     {
         _testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDir);
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptsFolder", _testDir),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".txt"),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:1", ".prompt")
+        });
+        _config = configBuilder.Build();
+        _promptService = new PromptService(_config);
     }
 
     [Fact]
@@ -25,7 +37,7 @@ public class PromptLoaderTests : IDisposable
         File.WriteAllText(Path.Combine(_testDir, "c.unsupported"), "Should be ignored");
 
         // Act
-        var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(_testDir);
+        var prompts = _promptService.LoadPrompts();
 
         // Assert
         Assert.NotNull(prompts);
@@ -44,7 +56,7 @@ public class PromptLoaderTests : IDisposable
         File.WriteAllText(Path.Combine(subDir, "d.prompt"), "Sub");
 
         // Act
-        var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(_testDir, cascadeOverride: true);
+        var prompts = _promptService.LoadPrompts(cascadeOverride: true);
 
         // Assert
         Assert.Equal("Sub", prompts["d"].Text);
@@ -60,7 +72,7 @@ public class PromptLoaderTests : IDisposable
         File.WriteAllText(Path.Combine(subDir, "e.prompt"), "Sub");
 
         // Act
-        var prompts = PromptLoader.Services.PromptLoader.LoadPrompts(_testDir, cascadeOverride: false);
+        var prompts = _promptService.LoadPrompts(cascadeOverride: false);
 
         // Assert
         Assert.Equal("Root", prompts["e"].Text);

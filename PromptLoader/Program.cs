@@ -41,8 +41,7 @@ var prompts = promptService.LoadPrompts(cascadeOverride: true);
 var promptSets = promptService.LoadPromptSets(cascadeOverride: true);
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContext = promptService.JoinPrompts(promptSets["Sales"], "Main");   
-
+var salesPromptContext = promptService.JoinPrompts(promptSets["Sales"]["Main"]);
 // This is the GitHub Models format.  
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
 

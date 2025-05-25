@@ -1,18 +1,22 @@
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 using PromptLoader.Services;
+using Xunit;
 
 namespace PromptLoader.Tests;
 
 public class PromptSetLoaderTests
 {
     private readonly IConfiguration _config;
+    private readonly IPromptService _promptService;
+
     public PromptSetLoaderTests()
     {
         _config = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appSettings.json", optional: true, reloadOnChange: false)
             .Build();
+        _promptService = new PromptService(_config);
     }
 
     [Fact]
@@ -26,8 +30,18 @@ public class PromptSetLoaderTests
         Directory.CreateDirectory(setDir);
         File.WriteAllText(Path.Combine(setDir, "a.prompt"), "Prompt A");
 
+        // Inject test folder into config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var testConfig = configBuilder.Build();
+        var promptService = new PromptService(testConfig);
+
         // Act
-        var sets = PromptSetLoader.LoadPromptSets(tempRoot);
+        var sets = promptService.LoadPromptSets();
 
         // Assert
         Assert.Single(sets); // Only SetA
@@ -64,8 +78,18 @@ public class PromptSetLoaderTests
         File.WriteAllText(Path.Combine(salesDir, "examples.prompt"), "Sales example");
         File.WriteAllText(Path.Combine(salesDir, "instructions.prompt"), "Sales instructions");
 
+        // Inject test folder into config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var testConfig = configBuilder.Build();
+        var promptService = new PromptService(testConfig);
+
         // Act
-        var sets = PromptSetLoader.LoadPromptSets(tempRoot);
+        var sets = promptService.LoadPromptSets();
 
         // Assert
         Assert.Contains("CustomerService", sets.Keys);
@@ -105,8 +129,18 @@ public class PromptSetLoaderTests
         File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales example");
         File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales instructions");
 
+        // Inject test folder into config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md")
+        });
+        var testConfig = configBuilder.Build();
+        var promptService = new PromptService(testConfig);
+
         // Act
-        var sets = PromptSetLoader.LoadPromptSets(tempRoot);
+        var sets = promptService.LoadPromptSets();
 
         // Assert
         Assert.Contains("Sales", sets.Keys);
@@ -127,10 +161,11 @@ public class PromptSetLoaderTests
         // Arrange
         var sets = new Dictionary<string, PromptSet>();
         var config = new ConfigurationBuilder().Build();
+        var promptService = new PromptService(config);
 
         // Act & Assert
         Assert.Throws<KeyNotFoundException>(() =>
-            PromptSetLoader.JoinPrompts(sets, "missing", config));
+            promptService.JoinPrompts(sets, "missing"));
     }
 
     [Fact]
@@ -153,9 +188,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string>("PromptOrder:1", "instructions")
         });
         var config = configBuilder.Build();
+        var promptService = new PromptService(config);
 
         // Act
-        var result = PromptSetLoader.JoinPrompts(sets, "set1", config);
+        var result = promptService.JoinPrompts(sets, "set1");
 
         // Assert
         Assert.Equal("system" + Environment.NewLine + "instructions", result);
@@ -174,13 +210,44 @@ public class PromptSetLoaderTests
         var sets = new Dictionary<string, PromptSet> { { "set1", set } };
 
         var config = new ConfigurationBuilder().Build();
+        var promptService = new PromptService(config);
         // Act
-        var result = PromptSetLoader.JoinPrompts(sets, "set1", config);
+        var result = promptService.JoinPrompts(sets, "set1");
 
         // Assert
         // The order of Dictionary.Values is not guaranteed, so check both possibilities
         var expected1 = "First" + Environment.NewLine + "Second";
         var expected2 = "Second" + Environment.NewLine + "First";
         Assert.Contains(result, new[] { expected1, expected2 });
+    }
+
+    [Fact]
+    public void JoinPrompts_Overload_JoinsPromptSetCorrectly()
+    {
+        // Arrange
+        var prompts = new Dictionary<string, Prompt>
+        {
+            { "system", new Prompt("System text", PromptFormat.Plain) },
+            { "instructions", new Prompt("Instructions text", PromptFormat.Plain) },
+            { "examples", new Prompt("Examples text", PromptFormat.Plain) }
+        };
+        var promptSet = new PromptSet { Name = "Main", Prompts = prompts };
+
+        // Provide PromptOrder in config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("PromptOrder:2", "examples")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act
+        var result = promptService.JoinPrompts(promptSet);
+
+        // Assert
+        Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", System.Environment.NewLine), result);
     }
 }
