@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
+using PromptLoader.Utils;
 using System.Collections.Generic;
 
 namespace PromptLoader.Services
@@ -34,7 +35,7 @@ namespace PromptLoader.Services
         /// </summary>
         public Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true)
         {
-            var promptsFolder = _config["PromptsFolder"] ?? "Prompts";
+            var promptsFolder = PathUtils.ResolvePromptPath(_config["PromptsFolder"] ?? "Prompts");
             EnsureSupportedExtensionsLoaded();
             Prompts = LoadPromptsInternal(promptsFolder, cascadeOverride);
             return Prompts;
@@ -45,7 +46,8 @@ namespace PromptLoader.Services
         /// </summary>
         public Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true)
         {
-            var promptSetFolder = _config["PromptSetFolder"] ?? "PromptSets";
+
+            var promptSetFolder = PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
             EnsureSupportedExtensionsLoaded();
             PromptSets = LoadPromptSetsInternal(promptSetFolder, cascadeOverride);
             return PromptSets;

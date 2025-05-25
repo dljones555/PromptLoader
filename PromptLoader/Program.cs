@@ -1,11 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
-using PromptLoader.Utils;
-using Loader = PromptLoader.Services.PromptLoader; // Using the alias for clarity. 
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
@@ -13,8 +11,14 @@ var config = new ConfigurationBuilder()
     .AddEnvironmentVariables() // This requires the correct namespace
     .Build();
 
-// Set supported prompt extensions from config
-Loader.SetSupportedExtensionsFromConfig(config);
+// Set up DI
+var services = new ServiceCollection();
+services.AddSingleton<IPromptService, PromptService>();
+services.AddSingleton<IConfiguration>(config);
+var provider = services.BuildServiceProvider();
+
+// Get singleton instance from DI
+var promptService = provider.GetRequiredService<IPromptService>();
 
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
@@ -33,20 +37,11 @@ builder.AddOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-// Read prompt folders from appsettings.json and resolve them
-var promptsFolder = PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts");
-var promptSetFolder = PathUtils.ResolvePromptPath(config["PromptSetFolder"] ?? "PromptSets");
-
-// TODO: Make these Singletons in the DI container.
-//  
-// var promptSets = promptSetLoader.LoadPromptSets(promptSetFolder, true);
-// var prompts = promptLoader.LoadPrompts(promptsFolder, true);
-
-var prompts = Loader.LoadPrompts(promptsFolder, cascadeOverride: true);   
-var promptSets = PromptSetLoader.LoadPromptSets(promptSetFolder, cascadeOverride: true);
+var prompts = promptService.LoadPrompts(cascadeOverride: true);
+var promptSets = promptService.LoadPromptSets(cascadeOverride: true);
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContext = PromptSetLoader.JoinPrompts(promptSets["Sales"], "Main", config);   
+var salesPromptContext = promptService.JoinPrompts(promptSets["Sales"], "Main");   
 
 // This is the GitHub Models format.  
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
