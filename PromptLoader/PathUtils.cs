@@ -9,6 +9,9 @@ namespace PromptLoader.Utils
             var exePath = Path.GetFullPath(Path.Combine(exeDir, relativePath));
             if (Directory.Exists(exePath)) return exePath;
 
+
+            // TODO: This is from CoPilot. Vet this logic.
+
             var dir = exeDir;
             for (int i = 0; i < 5; i++)
             {
