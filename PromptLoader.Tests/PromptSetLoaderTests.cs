@@ -47,11 +47,11 @@ public class PromptSetLoaderTests
         Assert.Single(sets); // Only SetA
         Assert.Contains("SetA", sets.Keys);
         var setA = sets["SetA"];
-        Assert.Single(setA); // Only Main
-        Assert.Contains("Main", setA.Keys);
-        Assert.Equal("Main", setA["Main"].Name);
-        Assert.Contains("a", setA["Main"].Prompts.Keys);
-        Assert.Equal("Prompt A", setA["Main"].Prompts["a"].Text);
+        Assert.Single(setA); // Only Root
+        Assert.Contains("Root", setA.Keys);
+        Assert.Equal("Root", setA["Root"].Name);
+        Assert.Contains("a", setA["Root"].Prompts.Keys);
+        Assert.Equal("Prompt A", setA["Root"].Prompts["a"].Text);
 
         // Cleanup
         Directory.Delete(tempRoot, true);
@@ -108,18 +108,18 @@ public class PromptSetLoaderTests
 
         // Sales
         var sales = sets["Sales"];
-        Assert.Contains("Main", sales.Keys); // Prompts directly in Sales
-        Assert.Contains("examples", sales["Main"].Prompts.Keys);
-        Assert.Contains("instructions", sales["Main"].Prompts.Keys);
-        Assert.Equal("Sales example", sales["Main"].Prompts["examples"].Text);
-        Assert.Equal("Sales instructions", sales["Main"].Prompts["instructions"].Text);
+        Assert.Contains("Root", sales.Keys); // Prompts directly in Sales
+        Assert.Contains("examples", sales["Root"].Prompts.Keys);
+        Assert.Contains("instructions", sales["Root"].Prompts.Keys);
+        Assert.Equal("Sales example", sales["Root"].Prompts["examples"].Text);
+        Assert.Equal("Sales instructions", sales["Root"].Prompts["instructions"].Text);
 
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
 
     [Fact]
-    public void LoadPromptSets_LoadsMdFilesInMainPromptSet()
+    public void LoadPromptSets_LoadsMdFilesInRootPromptSet()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -145,11 +145,11 @@ public class PromptSetLoaderTests
         // Assert
         Assert.Contains("Sales", sets.Keys);
         var sales = sets["Sales"];
-        Assert.Contains("Main", sales.Keys);
-        Assert.Contains("examples", sales["Main"].Prompts.Keys);
-        Assert.Contains("instructions", sales["Main"].Prompts.Keys);
-        Assert.Equal("Sales example", sales["Main"].Prompts["examples"].Text);
-        Assert.Equal("Sales instructions", sales["Main"].Prompts["instructions"].Text);
+        Assert.Contains("Root", sales.Keys);
+        Assert.Contains("examples", sales["Root"].Prompts.Keys);
+        Assert.Contains("instructions", sales["Root"].Prompts.Keys);
+        Assert.Equal("Sales example", sales["Root"].Prompts["examples"].Text);
+        Assert.Equal("Sales instructions", sales["Root"].Prompts["instructions"].Text);
 
         // Cleanup
         Directory.Delete(tempRoot, true);

@@ -9,6 +9,7 @@ namespace PromptLoader.Services
     {
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
+        string PromptOrderType { get; } // New property
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
@@ -25,10 +26,12 @@ namespace PromptLoader.Services
         private bool _extensionsLoaded = false;
         public Dictionary<string, Prompt> Prompts { get; private set; } = new();
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; private set; } = new();
+        public string PromptOrderType { get; private set; } = "named";
 
         public PromptService(IConfiguration config)
         {
             _config = config;
+            PromptOrderType = config["PromptOrderType"] ?? "named";
             if (config.GetValue<bool>("AutoLoadPrompts"))
             {
                 LoadPrompts();
@@ -142,21 +145,53 @@ namespace PromptLoader.Services
                 var topLevelName = System.IO.Path.GetFileName(topLevelDir);
                 var subSets = new Dictionary<string, PromptSet>(System.StringComparer.OrdinalIgnoreCase);
 
-                // Prompts directly in the top-level folder
-                var mainPrompts = LoadPromptsInternal(topLevelDir, cascadeOverride);
-                if (mainPrompts.Count > 0)
+                // Only include files found directly in the top-level folder in the "Root" PromptSet
+                var rootPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (var file in System.IO.Directory.GetFiles(topLevelDir, "*.*", System.IO.SearchOption.TopDirectoryOnly))
                 {
-                    subSets["Main"] = new PromptSet { Name = "Main", Prompts = mainPrompts };
+                    var ext = System.IO.Path.GetExtension(file);
+                    if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
+                    var name = System.IO.Path.GetFileNameWithoutExtension(file);
+                    var content = System.IO.File.ReadAllText(file);
+                    var format = GetFormatFromExtension(ext);
+                    rootPrompts[name] = new Prompt(content, format);
+                }
+                if (rootPrompts.Count > 0)
+                {
+                    subSets["Root"] = new PromptSet { Name = "Root", Prompts = rootPrompts };
                 }
 
-                // Subfolders as sub prompt sets
+                // Subfolders as sub prompt sets, with prompt inheritance logic
                 foreach (var subDir in System.IO.Directory.GetDirectories(topLevelDir))
                 {
                     var subName = System.IO.Path.GetFileName(subDir);
-                    var prompts = LoadPromptsInternal(subDir, cascadeOverride);
-                    subSets[subName] = new PromptSet { Name = subName, Prompts = prompts };
+                    var subPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+                    // Load prompts from subfolder
+                    foreach (var file in System.IO.Directory.GetFiles(subDir, "*.*", System.IO.SearchOption.TopDirectoryOnly))
+                    {
+                        var ext = System.IO.Path.GetExtension(file);
+                        if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
+                        var name = System.IO.Path.GetFileNameWithoutExtension(file);
+                        var content = System.IO.File.ReadAllText(file);
+                        var format = GetFormatFromExtension(ext);
+                        subPrompts[name] = new Prompt(content, format);
+                    }
+                    // Inherit from parent if cascadeOverride is true or false
+                    foreach (var parentPrompt in rootPrompts)
+                    {
+                        if (!subPrompts.ContainsKey(parentPrompt.Key))
+                        {
+                            subPrompts[parentPrompt.Key] = parentPrompt.Value;
+                        }
+                        else if (!cascadeOverride)
+                        {
+                            // If cascadeOverride is false, use parent value if present
+                            subPrompts[parentPrompt.Key] = parentPrompt.Value;
+                        }
+                        // If cascadeOverride is true, subfolder value already takes precedence
+                    }
+                    subSets[subName] = new PromptSet { Name = subName, Prompts = subPrompts };
                 }
-
                 result[topLevelName] = subSets;
             }
             return result;
