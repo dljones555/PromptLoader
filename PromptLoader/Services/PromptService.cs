@@ -23,8 +23,25 @@ namespace PromptLoader.Services
         PromptOrderType PromptOrderType { get; } // Now enum
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
+
+        /// <summary>
+        /// Joins prompts in a set according to PromptOrder in config, with optional separator.
+        /// </summary>
+        /// <param name="promptSets">Dictionary of prompt sets (e.g., from LoadPromptSets).</param>
+        /// <param name="setName">The name of the prompt set to join.</param>
+        /// <param name="separator">Optional separator string. If null, uses PromptSeparator from config or newline.</param>
+        /// <returns>Concatenated prompt text for the set, using the specified or configured separator.</returns>
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null);
+
+        /// <summary>
+        /// Joins prompts in a PromptSet according to PromptOrderType, with optional separator.
+        /// </summary>
+        /// <param name="promptSet">The prompt set to join.</param>
+        /// <param name="rootSet">Optional root set for fallback prompt lookup.</param>
+        /// <param name="separator">Optional separator string. If null, uses PromptSeparator from config or newline.</param>
+        /// <returns>Concatenated prompt text for the set, using the specified or configured separator.</returns>
         string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null);
+
         Prompt? LoadPrompt(string filePath);
     }
 
@@ -74,6 +91,10 @@ namespace PromptLoader.Services
         /// <summary>
         /// Joins prompts in a set according to PromptOrder in config, with optional separator.
         /// </summary>
+        /// <param name="promptSets">Dictionary of prompt sets (e.g., from LoadPromptSets).</param>
+        /// <param name="setName">The name of the prompt set to join.</param>
+        /// <param name="separator">Optional separator string. If null, uses PromptSeparator from config or newline.</param>
+        /// <returns>Concatenated prompt text for the set, using the specified or configured separator.</returns>
         public string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null)
         {
             // Try to get the root-level set for fallback
@@ -89,6 +110,10 @@ namespace PromptLoader.Services
         /// <summary>
         /// Joins prompts in a PromptSet according to PromptOrderType, with optional separator.
         /// </summary>
+        /// <param name="promptSet">The prompt set to join.</param>
+        /// <param name="rootSet">Optional root set for fallback prompt lookup.</param>
+        /// <param name="separator">Optional separator string. If null, uses PromptSeparator from config or newline.</param>
+        /// <returns>Concatenated prompt text for the set, using the specified or configured separator.</returns>
         public string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null)
         {
             var sep = separator ?? _config["PromptSeparator"] ?? Environment.NewLine;
