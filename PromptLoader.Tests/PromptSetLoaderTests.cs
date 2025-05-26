@@ -250,4 +250,90 @@ public class PromptSetLoaderTests
         // Assert
         Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", System.Environment.NewLine), result);
     }
+
+    [Fact]
+    public void JoinPrompts_UsesRootPromptIfMissingInSubdir()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        File.WriteAllText(Path.Combine(tempRoot, "system.md"), "Root System");
+        var salesDir = Path.Combine(tempRoot, "Sales");
+        Directory.CreateDirectory(salesDir);
+        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
+
+        // Inject test folder and PromptOrder into config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions")
+        });
+        var testConfig = configBuilder.Build();
+        var promptService = new PromptService(testConfig);
+
+        // Act
+        var sets = promptService.LoadPromptSets();
+        var salesSet = sets["Sales"]["Root"];
+        var rootSet = sets["Root"]["Root"];
+        var joined = promptService.JoinPrompts(salesSet, rootSet);
+
+        // Assert
+        Assert.Contains("Root System", joined);
+        Assert.Contains("Sales Instructions", joined);
+        // system should come before instructions
+        var idxSystem = joined.IndexOf("Root System");
+        var idxInstructions = joined.IndexOf("Sales Instructions");
+        Assert.True(idxSystem < idxInstructions);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
+
+    [Fact]
+    public void JoinPrompts_SalesSet_InheritsSystemFromRoot()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        File.WriteAllText(Path.Combine(tempRoot, "system.md"), "Root System");
+        var salesDir = Path.Combine(tempRoot, "Sales");
+        Directory.CreateDirectory(salesDir);
+        File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales Example");
+        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
+
+        // Inject test folder and PromptOrder into config
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "examples"),
+            new KeyValuePair<string, string>("PromptOrder:2", "instructions")
+        });
+        var testConfig = configBuilder.Build();
+        var promptService = new PromptService(testConfig);
+
+        // Act
+        var sets = promptService.LoadPromptSets();
+        var salesSet = sets["Sales"]["Root"];
+        var rootSet = sets["Root"]["Root"];
+        var joined = promptService.JoinPrompts(salesSet, rootSet);
+
+        // Assert
+        Assert.Contains("Root System", joined);
+        Assert.Contains("Sales Example", joined);
+        Assert.Contains("Sales Instructions", joined);
+        // Check order
+        var idxSystem = joined.IndexOf("Root System");
+        var idxExamples = joined.IndexOf("Sales Example");
+        var idxInstructions = joined.IndexOf("Sales Instructions");
+        Assert.True(idxSystem < idxExamples && idxExamples < idxInstructions);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
 }

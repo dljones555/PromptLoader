@@ -20,7 +20,7 @@ namespace PromptLoader.Services
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
-        string JoinPrompts(PromptSet promptSet);
+        string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null);
     }
 
     /// <summary>
@@ -75,15 +75,20 @@ namespace PromptLoader.Services
         /// </summary>
         public string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName)
         {
+            // Try to get the root-level set for fallback
+            PromptSet? rootSet = null;
+            if (promptSets.TryGetValue("Root", out var rootPromptSet))
+                rootSet = rootPromptSet;
+
             if (!promptSets.TryGetValue(setName, out var promptSet))
                 throw new KeyNotFoundException($"Prompt set '{setName}' not found.");
-            return JoinPrompts(promptSet);
+            return JoinPrompts(promptSet, rootSet);
         }
 
         /// <summary>
         /// Joins prompts in a PromptSet according to PromptOrderType.
         /// </summary>
-        public string JoinPrompts(PromptSet promptSet)
+        public string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null)
         {
             switch (PromptOrderType)
             {
@@ -96,6 +101,8 @@ namespace PromptLoader.Services
                         {
                             if (promptSet.Prompts.TryGetValue(key, out var prompt))
                                 ordered.Add(prompt.Text);
+                            else if (rootSet != null && rootSet.Prompts.TryGetValue(key, out var rootPrompt))
+                                ordered.Add(rootPrompt.Text);
                         }
                         // Add any remaining prompts not in PromptOrder
                         foreach (var kvp in promptSet.Prompts)
@@ -167,6 +174,26 @@ namespace PromptLoader.Services
         private Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSetsInternal(string rootFolder, bool cascadeOverride = true)
         {
             var result = new Dictionary<string, Dictionary<string, PromptSet>>(System.StringComparer.OrdinalIgnoreCase);
+
+            // Add Root set for the rootFolder itself (e.g., /PromptSets)
+            var rootLevelPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+            foreach (var file in System.IO.Directory.GetFiles(rootFolder, "*.*", System.IO.SearchOption.TopDirectoryOnly))
+            {
+                var ext = System.IO.Path.GetExtension(file);
+                if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
+                var name = System.IO.Path.GetFileNameWithoutExtension(file);
+                var content = System.IO.File.ReadAllText(file);
+                var format = GetFormatFromExtension(ext);
+                rootLevelPrompts[name] = new Prompt(content, format);
+            }
+            if (rootLevelPrompts.Count > 0)
+            {
+                result["Root"] = new Dictionary<string, PromptSet>(System.StringComparer.OrdinalIgnoreCase)
+                {
+                    { "Root", new PromptSet { Name = "Root", Prompts = rootLevelPrompts } }
+                };
+            }
+
             foreach (var topLevelDir in System.IO.Directory.GetDirectories(rootFolder))
             {
                 var topLevelName = System.IO.Path.GetFileName(topLevelDir);
