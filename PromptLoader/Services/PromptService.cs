@@ -17,8 +17,8 @@ namespace PromptLoader.Services
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
         PromptOrderType PromptOrderType { get; } // Now enum
-        Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true);
-        Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true);
+        Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null);
+        Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
         string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null);
     }
@@ -49,24 +49,24 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Loads all prompts from the configured prompts folder.
+        /// Loads all prompts from the configured prompts folder or a specified folder.
         /// </summary>
-        public Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true)
+        public Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null)
         {
-            var promptsFolder = PathUtils.ResolvePromptPath(_config["PromptsFolder"] ?? "Prompts");
+            var folder = promptsFolder ?? PathUtils.ResolvePromptPath(_config["PromptsFolder"] ?? "Prompts");
             EnsureSupportedExtensionsLoaded();
-            Prompts = LoadPromptsInternal(promptsFolder, cascadeOverride);
+            Prompts = LoadPromptsInternal(folder, cascadeOverride);
             return Prompts;
         }
 
         /// <summary>
-        /// Loads all prompt sets from the configured prompt set folder.
+        /// Loads all prompt sets from the configured prompt set folder or a specified folder.
         /// </summary>
-        public Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true)
+        public Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null)
         {
-            var promptSetFolder = PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
+            var folder = promptSetFolder ?? PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
             EnsureSupportedExtensionsLoaded();
-            PromptSets = LoadPromptSetsInternal(promptSetFolder, cascadeOverride);
+            PromptSets = LoadPromptSetsInternal(folder, cascadeOverride);
             return PromptSets;
         }
 
@@ -144,6 +144,9 @@ namespace PromptLoader.Services
 
         private Dictionary<string, Prompt> LoadPromptsInternal(string folderPath, bool cascadeOverride = true)
         {
+            if (!System.IO.Directory.Exists(folderPath))
+                return new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+
             var promptFiles = System.IO.Directory.GetFiles(folderPath, "*.*", System.IO.SearchOption.AllDirectories)
                 .Where(f => _supportedExtensions.Contains(System.IO.Path.GetExtension(f), System.StringComparer.OrdinalIgnoreCase))
                 .OrderBy(f => f.Count(c => c == System.IO.Path.DirectorySeparatorChar));
@@ -173,6 +176,9 @@ namespace PromptLoader.Services
 
         private Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSetsInternal(string rootFolder, bool cascadeOverride = true)
         {
+            if (!System.IO.Directory.Exists(rootFolder))
+                return new Dictionary<string, Dictionary<string, PromptSet>>(System.StringComparer.OrdinalIgnoreCase);
+
             var result = new Dictionary<string, Dictionary<string, PromptSet>>(System.StringComparer.OrdinalIgnoreCase);
 
             // Add Root set for the rootFolder itself (e.g., /PromptSets)
