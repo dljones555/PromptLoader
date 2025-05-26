@@ -23,8 +23,8 @@ namespace PromptLoader.Services
         PromptOrderType PromptOrderType { get; } // Now enum
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
-        string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
-        string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null);
+        string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null);
+        string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null);
         Prompt? LoadPrompt(string filePath);
     }
 
@@ -72,9 +72,9 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Joins prompts in a set according to PromptOrder in config.
+        /// Joins prompts in a set according to PromptOrder in config, with optional separator.
         /// </summary>
-        public string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName)
+        public string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null)
         {
             // Try to get the root-level set for fallback
             PromptSet? rootSet = null;
@@ -83,14 +83,15 @@ namespace PromptLoader.Services
 
             if (!promptSets.TryGetValue(setName, out var promptSet))
                 throw new KeyNotFoundException($"Prompt set '{setName}' not found.");
-            return JoinPrompts(promptSet, rootSet);
+            return JoinPrompts(promptSet, rootSet, separator);
         }
 
         /// <summary>
-        /// Joins prompts in a PromptSet according to PromptOrderType.
+        /// Joins prompts in a PromptSet according to PromptOrderType, with optional separator.
         /// </summary>
-        public string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null)
+        public string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null)
         {
+            var sep = separator ?? _config["PromptSeparator"] ?? Environment.NewLine;
             switch (PromptOrderType)
             {
                 case PromptOrderType.Named:
@@ -111,18 +112,18 @@ namespace PromptLoader.Services
                             if (!promptOrder.Contains(kvp.Key))
                                 ordered.Add(kvp.Value.Text);
                         }
-                        return string.Join(Environment.NewLine, ordered);
+                        return string.Join(sep, ordered);
                     }
                     // Fallback: join all prompts in default order
-                    return string.Join(Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
+                    return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
                 case PromptOrderType.Numeric:
                     var numericOrdered = promptSet.Prompts
                         .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
                         .Select(kvp => kvp.Value.Text);
-                    return string.Join(Environment.NewLine, numericOrdered);
+                    return string.Join(sep, numericOrdered);
                 case PromptOrderType.None:
                 default:
-                    return string.Join(Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
+                    return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
             }
         }
 
