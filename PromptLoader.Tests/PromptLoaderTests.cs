@@ -78,6 +78,53 @@ public class PromptLoaderTests : IDisposable
         Assert.Equal("Root", prompts["e"].Text);
     }
 
+    [Fact]
+    public void LoadPrompts_LoadsFromCustomFolder()
+    {
+        // Arrange
+        var customDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(customDir);
+        File.WriteAllText(Path.Combine(customDir, "custom.prompt"), "Custom Prompt");
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act
+        var prompts = promptService.LoadPrompts(promptsFolder: customDir);
+
+        // Assert
+        Assert.Single(prompts);
+        Assert.Contains("custom", prompts.Keys);
+        Assert.Equal("Custom Prompt", prompts["custom"].Text);
+
+        // Cleanup
+        Directory.Delete(customDir, true);
+    }
+
+    [Fact]
+    public void LoadPrompts_NonExistentFolder_HandledGracefully()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act & Assert
+        var ex = Record.Exception(() => promptService.LoadPrompts(promptsFolder: nonExistentDir));
+        Assert.Null(ex); // Should not throw
+        var prompts = promptService.LoadPrompts(promptsFolder: nonExistentDir);
+        Assert.Empty(prompts);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDir))

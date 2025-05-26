@@ -156,6 +156,59 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
+    public void LoadPromptSets_LoadsFromCustomFolder()
+    {
+        // Arrange
+        var customDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(customDir);
+        var setDir = Path.Combine(customDir, "CustomSet");
+        Directory.CreateDirectory(setDir);
+        File.WriteAllText(Path.Combine(setDir, "a.prompt"), "Prompt A");
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act
+        var sets = promptService.LoadPromptSets(promptSetFolder: customDir);
+
+        // Assert
+        Assert.Single(sets); // Only CustomSet
+        Assert.Contains("CustomSet", sets.Keys);
+        var setA = sets["CustomSet"];
+        Assert.Single(setA); // Only Root
+        Assert.Contains("Root", setA.Keys);
+        Assert.Contains("a", setA["Root"].Prompts.Keys);
+        Assert.Equal("Prompt A", setA["Root"].Prompts["a"].Text);
+
+        // Cleanup
+        Directory.Delete(customDir, true);
+    }
+
+    [Fact]
+    public void LoadPromptSets_NonExistentFolder_HandledGracefully()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act & Assert
+        var ex = Record.Exception(() => promptService.LoadPromptSets(promptSetFolder: nonExistentDir));
+        Assert.Null(ex); // Should not throw
+        var sets = promptService.LoadPromptSets(promptSetFolder: nonExistentDir);
+        Assert.Empty(sets);
+    }
+
+    [Fact]
     public void JoinPrompts_ThrowsIfSetNotFound()
     {
         // Arrange
