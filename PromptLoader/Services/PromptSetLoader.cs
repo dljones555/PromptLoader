@@ -18,7 +18,7 @@ namespace PromptLoader.Services
                 var mainPrompts = PromptLoader.LoadPrompts(topLevelDir, cascadeOverride);
                 if (mainPrompts.Count > 0)
                 {
-                    subSets["Main"] = new PromptSet { Name = "Main", Prompts = mainPrompts };
+                    subSets["Root"] = new PromptSet { Name = "Root", Prompts = mainPrompts };
                 }
 
                 // Subfolders as sub prompt sets

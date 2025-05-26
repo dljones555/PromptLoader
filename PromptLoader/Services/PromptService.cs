@@ -5,15 +5,22 @@ using System.Collections.Generic;
 
 namespace PromptLoader.Services
 {
+    public enum PromptOrderType
+    {
+        Named,
+        Numeric,
+        None
+    }
+
     public interface IPromptService
     {
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
-        string PromptOrderType { get; } // New property
+        PromptOrderType PromptOrderType { get; } // Now enum
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
-        string JoinPrompts(PromptSet promptSet); // New overload
+        string JoinPrompts(PromptSet promptSet);
     }
 
     /// <summary>
@@ -26,12 +33,14 @@ namespace PromptLoader.Services
         private bool _extensionsLoaded = false;
         public Dictionary<string, Prompt> Prompts { get; private set; } = new();
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; private set; } = new();
-        public string PromptOrderType { get; private set; } = "named";
+        public PromptOrderType PromptOrderType { get; private set; } = PromptOrderType.Named;
 
         public PromptService(IConfiguration config)
         {
             _config = config;
-            PromptOrderType = config["PromptOrderType"] ?? "named";
+            if (!Enum.TryParse(config["PromptOrderType"], true, out PromptOrderType parsedType))
+                parsedType = PromptOrderType.Named;
+            PromptOrderType = parsedType;
             if (config.GetValue<bool>("AutoLoadPrompts"))
             {
                 LoadPrompts();
@@ -72,23 +81,41 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Joins prompts in a PromptSet according to PromptOrder in config.
+        /// Joins prompts in a PromptSet according to PromptOrderType.
         /// </summary>
         public string JoinPrompts(PromptSet promptSet)
         {
-            var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
-            if (promptOrder != null && promptOrder.Length > 0)
+            switch (PromptOrderType)
             {
-                var ordered = new List<string>();
-                foreach (var key in promptOrder)
-                {
-                    if (promptSet.Prompts.TryGetValue(key, out var prompt))
-                        ordered.Add(prompt.Text);
-                }
-                return string.Join(System.Environment.NewLine, ordered);
+                case PromptOrderType.Named:
+                    var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
+                    if (promptOrder != null && promptOrder.Length > 0)
+                    {
+                        var ordered = new List<string>();
+                        foreach (var key in promptOrder)
+                        {
+                            if (promptSet.Prompts.TryGetValue(key, out var prompt))
+                                ordered.Add(prompt.Text);
+                        }
+                        // Add any remaining prompts not in PromptOrder
+                        foreach (var kvp in promptSet.Prompts)
+                        {
+                            if (!promptOrder.Contains(kvp.Key))
+                                ordered.Add(kvp.Value.Text);
+                        }
+                        return string.Join(System.Environment.NewLine, ordered);
+                    }
+                    // Fallback: join all prompts in default order
+                    return string.Join(System.Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
+                case PromptOrderType.Numeric:
+                    var numericOrdered = promptSet.Prompts
+                        .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+                        .Select(kvp => kvp.Value.Text);
+                    return string.Join(System.Environment.NewLine, numericOrdered);
+                case PromptOrderType.None:
+                default:
+                    return string.Join(System.Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
             }
-            // Fallback: join all prompts in default order
-            return string.Join(System.Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
         }
 
         private void EnsureSupportedExtensionsLoaded()
