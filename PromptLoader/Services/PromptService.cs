@@ -41,11 +41,7 @@ namespace PromptLoader.Services
             if (!Enum.TryParse(config["PromptOrderType"], true, out PromptOrderType parsedType))
                 parsedType = PromptOrderType.Named;
             PromptOrderType = parsedType;
-            if (config.GetValue<bool>("AutoLoadPrompts"))
-            {
-                LoadPrompts();
-                LoadPromptSets();
-            }
+            // Removed AutoLoadPrompts logic for explicit loading only
         }
 
         /// <summary>
