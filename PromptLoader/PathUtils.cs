@@ -1,3 +1,5 @@
+using PromptLoader.Models;
+
 namespace PromptLoader.Utils
 {
     public static class PathUtils
@@ -21,5 +23,11 @@ namespace PromptLoader.Utils
             }
             return exePath;
         }
+    }
+
+    public static class PromptSetDictionaryExtensions
+    {
+        public static PromptSet Root(this Dictionary<string, PromptSet> sets)
+            => sets.TryGetValue("Root", out var root) ? root : throw new InvalidOperationException("No Root set found.");
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
+using PromptLoader.Utils;
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
@@ -37,25 +38,20 @@ builder.AddOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-var prompts = promptService.LoadPrompts(cascadeOverride: true);
-var promptSets = promptService.LoadPromptSets(cascadeOverride: true);
+var prompts = promptService.LoadPrompts();
+var promptSets = promptService.LoadPromptSets();
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContext = promptService.JoinPrompts(promptSets["Sales"], "Root");
+var salesPromptContext = promptService.JoinPrompts(promptSets["Sales"].Root());
 // This is the GitHub Models format.  
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
 
 // Example: Load a single prompt file
-var singlePromptPath = "Prompts/sample.prompt";
+var singlePromptPath = Path.Combine(
+    PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts"),
+    "sample.prompt.yml"
+);
 var singlePrompt = promptService.LoadPrompt(singlePromptPath);
-if (singlePrompt != null)
-{
-    Console.WriteLine($"Loaded single prompt from {singlePromptPath}:\n{singlePrompt.Text}");
-}
-else
-{
-    Console.WriteLine($"Prompt file not found or unsupported: {singlePromptPath}");
-}
 
 // Prepare chat history with a system prompt and user/assistant pairs  
 var chatHistory = new ChatHistory();
