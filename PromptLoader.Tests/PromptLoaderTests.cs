@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Xunit;
 using PromptLoader.Services;
+using PromptLoader.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace PromptLoader.Tests;
@@ -123,6 +124,39 @@ public class PromptLoaderTests : IDisposable
         Assert.Null(ex); // Should not throw
         var prompts = promptService.LoadPrompts(promptsFolder: nonExistentDir);
         Assert.Empty(prompts);
+    }
+
+    [Fact]
+    public void LoadPrompt_LoadsSinglePromptFile()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir, "single.prompt");
+        File.WriteAllText(filePath, "Single Prompt Content");
+
+        // Act
+        var prompt = _promptService.LoadPrompt(filePath);
+
+        // Assert
+        Assert.NotNull(prompt);
+        Assert.Equal("Single Prompt Content", prompt.Text);
+        Assert.Equal(PromptFormat.Plain, prompt.Format);
+    }
+
+    [Fact]
+    public void LoadPrompt_ReturnsNullForUnsupportedOrMissingFile()
+    {
+        // Arrange
+        var unsupportedFile = Path.Combine(_testDir, "unsupported.unsupported");
+        var missingFile = Path.Combine(_testDir, "missing.prompt");
+        File.WriteAllText(unsupportedFile, "Should be ignored");
+
+        // Act
+        var prompt1 = _promptService.LoadPrompt(unsupportedFile);
+        var prompt2 = _promptService.LoadPrompt(missingFile);
+
+        // Assert
+        Assert.Null(prompt1);
+        Assert.Null(prompt2);
     }
 
     public void Dispose()

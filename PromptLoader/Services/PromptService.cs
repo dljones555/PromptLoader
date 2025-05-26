@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 using PromptLoader.Utils;
-using System.Collections.Generic;
 
 namespace PromptLoader.Services
 {
@@ -21,6 +25,7 @@ namespace PromptLoader.Services
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
         string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName);
         string JoinPrompts(PromptSet promptSet, PromptSet? rootSet = null);
+        Prompt? LoadPrompt(string filePath);
     }
 
     /// <summary>
@@ -29,7 +34,7 @@ namespace PromptLoader.Services
     public class PromptService : IPromptService
     {
         private readonly IConfiguration _config;
-        private string[] _supportedExtensions = System.Array.Empty<string>();
+        private string[] _supportedExtensions = Array.Empty<string>();
         private bool _extensionsLoaded = false;
         public Dictionary<string, Prompt> Prompts { get; private set; } = new();
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; private set; } = new();
@@ -106,19 +111,35 @@ namespace PromptLoader.Services
                             if (!promptOrder.Contains(kvp.Key))
                                 ordered.Add(kvp.Value.Text);
                         }
-                        return string.Join(System.Environment.NewLine, ordered);
+                        return string.Join(Environment.NewLine, ordered);
                     }
                     // Fallback: join all prompts in default order
-                    return string.Join(System.Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
+                    return string.Join(Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
                 case PromptOrderType.Numeric:
                     var numericOrdered = promptSet.Prompts
                         .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
                         .Select(kvp => kvp.Value.Text);
-                    return string.Join(System.Environment.NewLine, numericOrdered);
+                    return string.Join(Environment.NewLine, numericOrdered);
                 case PromptOrderType.None:
                 default:
-                    return string.Join(System.Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
+                    return string.Join(Environment.NewLine, promptSet.Prompts.Values.Select(x => x.Text));
             }
+        }
+
+        /// <summary>
+        /// Loads a single prompt from a file.
+        /// </summary>
+        public Prompt? LoadPrompt(string filePath)
+        {
+            EnsureSupportedExtensionsLoaded();
+            if (!File.Exists(filePath))
+                return null;
+            var ext = Path.GetExtension(filePath);
+            if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+                return null;
+            var content = File.ReadAllText(filePath);
+            var format = GetFormatFromExtension(ext);
+            return new Prompt(content, format);
         }
 
         private void EnsureSupportedExtensionsLoaded()
@@ -140,20 +161,20 @@ namespace PromptLoader.Services
 
         private Dictionary<string, Prompt> LoadPromptsInternal(string folderPath, bool cascadeOverride = true)
         {
-            if (!System.IO.Directory.Exists(folderPath))
-                return new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+            if (!Directory.Exists(folderPath))
+                return new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
 
-            var promptFiles = System.IO.Directory.GetFiles(folderPath, "*.*", System.IO.SearchOption.AllDirectories)
-                .Where(f => _supportedExtensions.Contains(System.IO.Path.GetExtension(f), System.StringComparer.OrdinalIgnoreCase))
-                .OrderBy(f => f.Count(c => c == System.IO.Path.DirectorySeparatorChar));
+            var promptFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
+                .Where(f => _supportedExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                .OrderBy(f => f.Count(c => c == Path.DirectorySeparatorChar));
 
-            var prompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+            var prompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var file in promptFiles)
             {
-                var name = System.IO.Path.GetFileNameWithoutExtension(file);
-                var content = System.IO.File.ReadAllText(file);
-                var format = GetFormatFromExtension(System.IO.Path.GetExtension(file));
+                var name = Path.GetFileNameWithoutExtension(file);
+                var content = File.ReadAllText(file);
+                var format = GetFormatFromExtension(Path.GetExtension(file));
 
                 var prompt = new Prompt(content, format);
 
@@ -172,43 +193,43 @@ namespace PromptLoader.Services
 
         private Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSetsInternal(string rootFolder, bool cascadeOverride = true)
         {
-            if (!System.IO.Directory.Exists(rootFolder))
-                return new Dictionary<string, Dictionary<string, PromptSet>>(System.StringComparer.OrdinalIgnoreCase);
+            if (!Directory.Exists(rootFolder))
+                return new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
 
-            var result = new Dictionary<string, Dictionary<string, PromptSet>>(System.StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
 
             // Add Root set for the rootFolder itself (e.g., /PromptSets)
-            var rootLevelPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
-            foreach (var file in System.IO.Directory.GetFiles(rootFolder, "*.*", System.IO.SearchOption.TopDirectoryOnly))
+            var rootLevelPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Directory.GetFiles(rootFolder, "*.*", SearchOption.TopDirectoryOnly))
             {
-                var ext = System.IO.Path.GetExtension(file);
-                if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
-                var name = System.IO.Path.GetFileNameWithoutExtension(file);
-                var content = System.IO.File.ReadAllText(file);
+                var ext = Path.GetExtension(file);
+                if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
+                var name = Path.GetFileNameWithoutExtension(file);
+                var content = File.ReadAllText(file);
                 var format = GetFormatFromExtension(ext);
                 rootLevelPrompts[name] = new Prompt(content, format);
             }
             if (rootLevelPrompts.Count > 0)
             {
-                result["Root"] = new Dictionary<string, PromptSet>(System.StringComparer.OrdinalIgnoreCase)
+                result["Root"] = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase)
                 {
                     { "Root", new PromptSet { Name = "Root", Prompts = rootLevelPrompts } }
                 };
             }
 
-            foreach (var topLevelDir in System.IO.Directory.GetDirectories(rootFolder))
+            foreach (var topLevelDir in Directory.GetDirectories(rootFolder))
             {
-                var topLevelName = System.IO.Path.GetFileName(topLevelDir);
-                var subSets = new Dictionary<string, PromptSet>(System.StringComparer.OrdinalIgnoreCase);
+                var topLevelName = Path.GetFileName(topLevelDir);
+                var subSets = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase);
 
                 // Only include files found directly in the top-level folder in the "Root" PromptSet
-                var rootPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
-                foreach (var file in System.IO.Directory.GetFiles(topLevelDir, "*.*", System.IO.SearchOption.TopDirectoryOnly))
+                var rootPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
+                foreach (var file in Directory.GetFiles(topLevelDir, "*.*", SearchOption.TopDirectoryOnly))
                 {
-                    var ext = System.IO.Path.GetExtension(file);
-                    if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
-                    var name = System.IO.Path.GetFileNameWithoutExtension(file);
-                    var content = System.IO.File.ReadAllText(file);
+                    var ext = Path.GetExtension(file);
+                    if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
+                    var name = Path.GetFileNameWithoutExtension(file);
+                    var content = File.ReadAllText(file);
                     var format = GetFormatFromExtension(ext);
                     rootPrompts[name] = new Prompt(content, format);
                 }
@@ -218,17 +239,17 @@ namespace PromptLoader.Services
                 }
 
                 // Subfolders as sub prompt sets, with prompt inheritance logic
-                foreach (var subDir in System.IO.Directory.GetDirectories(topLevelDir))
+                foreach (var subDir in Directory.GetDirectories(topLevelDir))
                 {
-                    var subName = System.IO.Path.GetFileName(subDir);
-                    var subPrompts = new Dictionary<string, Prompt>(System.StringComparer.OrdinalIgnoreCase);
+                    var subName = Path.GetFileName(subDir);
+                    var subPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
                     // Load prompts from subfolder
-                    foreach (var file in System.IO.Directory.GetFiles(subDir, "*.*", System.IO.SearchOption.TopDirectoryOnly))
+                    foreach (var file in Directory.GetFiles(subDir, "*.*", SearchOption.TopDirectoryOnly))
                     {
-                        var ext = System.IO.Path.GetExtension(file);
-                        if (!_supportedExtensions.Contains(ext, System.StringComparer.OrdinalIgnoreCase)) continue;
-                        var name = System.IO.Path.GetFileNameWithoutExtension(file);
-                        var content = System.IO.File.ReadAllText(file);
+                        var ext = Path.GetExtension(file);
+                        if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
+                        var name = Path.GetFileNameWithoutExtension(file);
+                        var content = File.ReadAllText(file);
                         var format = GetFormatFromExtension(ext);
                         subPrompts[name] = new Prompt(content, format);
                     }
