@@ -53,6 +53,7 @@ var refundPrompt = customerService["Refund"].GetCombinedPrompt();
 
 var chatHistory = new ChatHistory();
 chatHistory.AddSystemMessage(refundPrompt);
+chatHistory.AddUserMessage("I bought the shirt 20 days ago. It doesn't fit. What is the refund policy?");
 
 var chatService = kernel.GetRequiredService<IChatCompletionService>();
 var response = await chatService.GetChatMessageContentAsync(chatHistory);
