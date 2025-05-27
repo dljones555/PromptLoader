@@ -11,7 +11,7 @@ These reflect your business rules and processes, and alignment with your organiz
 ***Let product managers and business analysts share the work with engineers to define these and run evals!***
 
 ## Structured Prompt Management - external prompt management.  
-- Separates prompt from code as management assets.
+- Separates prompt from code as management assets
 - Provide convention based approach to AI projects of any type. Comparable to MVC frameworks like RoR
 - Segment prompts by functional or business area
 - Support prompt versioning and source control
