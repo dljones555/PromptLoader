@@ -209,7 +209,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void JoinPrompts_ThrowsIfSetNotFound()
+    public void GetCombinedPrompts_ThrowsIfSetNotFound()
     {
         // Arrange
         var sets = new Dictionary<string, PromptSet>();
@@ -218,11 +218,11 @@ public class PromptSetLoaderTests
 
         // Act & Assert
         Assert.Throws<KeyNotFoundException>(() =>
-            promptService.JoinPrompts(sets, "missing"));
+            promptService.GetCombinedPrompts(sets, "missing"));
     }
 
     [Fact]
-    public void JoinPrompts_UsesPromptOrderFromConfig()
+    public void GetCombinedPrompts_UsesPromptOrderFromConfig()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -244,14 +244,14 @@ public class PromptSetLoaderTests
         var promptService = new PromptService(config);
 
         // Act
-        var result = promptService.JoinPrompts(sets, "set1");
+        var result = promptService.GetCombinedPrompts(sets, "set1");
 
         // Assert
         Assert.Equal("system" + Environment.NewLine + "instructions", result);
     }
 
     [Fact]
-    public void JoinPrompts_FallsBackToDefaultOrder()
+    public void GetCombinedPrompts_FallsBackToDefaultOrder()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -264,18 +264,18 @@ public class PromptSetLoaderTests
 
         var config = new ConfigurationBuilder().Build();
         var promptService = new PromptService(config);
+        
         // Act
-        var result = promptService.JoinPrompts(sets, "set1");
+        var result = promptService.GetCombinedPrompts(sets, "set1");
 
         // Assert
-        // The order of Dictionary.Values is not guaranteed, so check both possibilities
         var expected1 = "First" + Environment.NewLine + "Second";
         var expected2 = "Second" + Environment.NewLine + "First";
         Assert.Contains(result, new[] { expected1, expected2 });
     }
 
     [Fact]
-    public void JoinPrompts_Overload_JoinsPromptSetCorrectly()
+    public void GetCombinedPrompts_Overload_JoinsPromptSetCorrectly()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -298,14 +298,14 @@ public class PromptSetLoaderTests
         var promptService = new PromptService(config);
 
         // Act
-        var result = promptService.JoinPrompts(promptSet);
+        var result = promptService.GetCombinedPrompts(promptSet);
 
         // Assert
-        Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", System.Environment.NewLine), result);
+        Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", Environment.NewLine), result);
     }
 
     [Fact]
-    public void JoinPrompts_UsesRootPromptIfMissingInSubdir()
+    public void GetCombinedPrompts_UsesRootPromptIfMissingInSubdir()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -331,14 +331,14 @@ public class PromptSetLoaderTests
         var sets = promptService.LoadPromptSets();
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
-        var joined = promptService.JoinPrompts(salesSet, rootSet);
+        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
 
         // Assert
-        Assert.Contains("Root System", joined);
-        Assert.Contains("Sales Instructions", joined);
+        Assert.Contains("Root System", combined);
+        Assert.Contains("Sales Instructions", combined);
         // system should come before instructions
-        var idxSystem = joined.IndexOf("Root System");
-        var idxInstructions = joined.IndexOf("Sales Instructions");
+        var idxSystem = combined.IndexOf("Root System");
+        var idxInstructions = combined.IndexOf("Sales Instructions");
         Assert.True(idxSystem < idxInstructions);
 
         // Cleanup
@@ -346,7 +346,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void JoinPrompts_SalesSet_InheritsSystemFromRoot()
+    public void GetCombinedPrompts_SalesSet_InheritsSystemFromRoot()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -374,16 +374,16 @@ public class PromptSetLoaderTests
         var sets = promptService.LoadPromptSets();
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
-        var joined = promptService.JoinPrompts(salesSet, rootSet);
+        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
 
         // Assert
-        Assert.Contains("Root System", joined);
-        Assert.Contains("Sales Example", joined);
-        Assert.Contains("Sales Instructions", joined);
+        Assert.Contains("Root System", combined);
+        Assert.Contains("Sales Example", combined);
+        Assert.Contains("Sales Instructions", combined);
         // Check order
-        var idxSystem = joined.IndexOf("Root System");
-        var idxExamples = joined.IndexOf("Sales Example");
-        var idxInstructions = joined.IndexOf("Sales Instructions");
+        var idxSystem = combined.IndexOf("Root System");
+        var idxExamples = combined.IndexOf("Sales Example");
+        var idxInstructions = combined.IndexOf("Sales Instructions");
         Assert.True(idxSystem < idxExamples && idxExamples < idxInstructions);
 
         // Cleanup
