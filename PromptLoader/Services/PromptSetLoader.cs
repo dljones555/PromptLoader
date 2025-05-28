@@ -35,7 +35,7 @@ namespace PromptLoader.Services
         }
 
         // New overload: uses PromptOrder from configuration
-        public static string JoinPrompts(Dictionary<string, PromptSet> promptSets, string setName, IConfiguration config)
+        public static string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, IConfiguration config)
         {
             if (!promptSets.TryGetValue(setName, out var promptSet))
                 throw new KeyNotFoundException($"Prompt set '{setName}' not found.");
