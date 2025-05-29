@@ -222,7 +222,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void GetCombinedPrompts_UsesPromptOrderFromConfig()
+    public void GetCombinedPrompts_UsesPromptListFromConfig()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -233,12 +233,12 @@ public class PromptSetLoaderTests
         var set = new PromptSet { Name = "Test", Prompts = prompts };
         var sets = new Dictionary<string, PromptSet> { { "set1", set } };
 
-        // Provide PromptOrder in config
+        // Provide PromptList in config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions")
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
@@ -286,13 +286,13 @@ public class PromptSetLoaderTests
         };
         var promptSet = new PromptSet { Name = "Main", Prompts = prompts };
 
-        // Provide PromptOrder in config
+        // Provide PromptList in config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
-            new KeyValuePair<string, string>("PromptOrder:2", "examples")
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
+            new KeyValuePair<string, string>("PromptList:2", "examples")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
@@ -315,14 +315,14 @@ public class PromptSetLoaderTests
         Directory.CreateDirectory(salesDir);
         File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
-        // Inject test folder and PromptOrder into config
+        // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
             new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions")
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
@@ -357,15 +357,15 @@ public class PromptSetLoaderTests
         File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales Example");
         File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
-        // Inject test folder and PromptOrder into config
+        // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
             new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "examples"),
-            new KeyValuePair<string, string>("PromptOrder:2", "instructions")
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "examples"),
+            new KeyValuePair<string, string>("PromptList:2", "instructions")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
@@ -391,7 +391,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_ConstrainPromptList_OnlyLoadsPromptOrderFiles()
+    public void LoadPromptSets_ConstrainPromptList_OnlyLoadsPromptListFiles()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -406,8 +406,8 @@ public class PromptSetLoaderTests
         {
             new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
             new KeyValuePair<string, string>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
@@ -443,8 +443,8 @@ public class PromptSetLoaderTests
         {
             new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
             new KeyValuePair<string, string>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();

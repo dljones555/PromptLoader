@@ -9,7 +9,7 @@ using PromptLoader.Utils;
 
 namespace PromptLoader.Services
 {
-    public enum PromptOrderType
+    public enum PromptListType
     {
         Named,
         Numeric,
@@ -20,7 +20,7 @@ namespace PromptLoader.Services
     {
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
-        PromptOrderType PromptOrderType { get; }
+        PromptListType PromptListType { get; }
         Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null);
         Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
         string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null);
@@ -38,14 +38,14 @@ namespace PromptLoader.Services
         private bool _extensionsLoaded = false;
         public Dictionary<string, Prompt> Prompts { get; private set; } = new();
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; private set; } = new();
-        public PromptOrderType PromptOrderType { get; private set; } = PromptOrderType.Named;
+        public PromptListType PromptListType { get; private set; } = PromptListType.Named;
 
         public PromptService(IConfiguration config)
         {
             _config = config;
-            if (!Enum.TryParse(config["PromptOrderType"], true, out PromptOrderType parsedType))
-                parsedType = PromptOrderType.Named;
-            PromptOrderType = parsedType;
+            if (!Enum.TryParse(config["PromptListType"], true, out PromptListType parsedType))
+                parsedType = PromptListType.Named;
+            PromptListType = parsedType;
         }
 
         /// <summary>
@@ -71,7 +71,7 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Combines prompts in a set according to PromptOrder in config, with optional separator.
+        /// Combines prompts in a set according to PromptList in config, with optional separator.
         /// </summary>
         /// <param name="promptSets">Dictionary of prompt sets (e.g., from LoadPromptSets).</param>
         /// <param name="setName">The name of the prompt set to combine.</param>
@@ -89,7 +89,7 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Combines prompts in a PromptSet according to PromptOrderType, with optional separator.
+        /// Combines prompts in a PromptSet according to PromptListType, with optional separator.
         /// </summary>
         /// <param name="promptSet">The prompt set to combine.</param>
         /// <param name="rootSet">Optional root set for fallback prompt lookup.</param>
@@ -98,36 +98,36 @@ namespace PromptLoader.Services
         public string GetCombinedPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null)
         {
             var sep = separator ?? _config["PromptSeparator"] ?? Environment.NewLine;
-            switch (PromptOrderType)
+            switch (PromptListType)
             {
-                case PromptOrderType.Named:
-                    var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
-                    if (promptOrder != null && promptOrder.Length > 0)
+                case PromptListType.Named:
+                    var promptList = _config.GetSection("PromptList").Get<string[]>();
+                    if (promptList != null && promptList.Length > 0)
                     {
                         var ordered = new List<string>();
-                        foreach (var key in promptOrder)
+                        foreach (var key in promptList)
                         {
                             if (promptSet.Prompts.TryGetValue(key, out var prompt))
                                 ordered.Add(prompt.Text);
                             else if (rootSet != null && rootSet.Prompts.TryGetValue(key, out var rootPrompt))
                                 ordered.Add(rootPrompt.Text);
                         }
-                        // Add any remaining prompts not in PromptOrder
+                        // Add any remaining prompts not in PromptList
                         foreach (var kvp in promptSet.Prompts)
                         {
-                            if (!promptOrder.Contains(kvp.Key))
+                            if (!promptList.Contains(kvp.Key))
                                 ordered.Add(kvp.Value.Text);
                         }
                         return string.Join(sep, ordered);
                     }
                     // Fallback: join all prompts in default order
                     return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
-                case PromptOrderType.Numeric:
+                case PromptListType.Numeric:
                     var numericOrdered = promptSet.Prompts
                         .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
                         .Select(kvp => kvp.Value.Text);
                     return string.Join(sep, numericOrdered);
-                case PromptOrderType.None:
+                case PromptListType.None:
                 default:
                     return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
             }
@@ -182,9 +182,9 @@ namespace PromptLoader.Services
             var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (constrain)
             {
-                var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
-                if (promptOrder != null)
-                    allowedNames.UnionWith(promptOrder);
+                var promptList = _config.GetSection("PromptList").Get<string[]>();
+                if (promptList != null)
+                    allowedNames.UnionWith(promptList);
             }
 
             foreach (var file in promptFiles)
@@ -220,9 +220,9 @@ namespace PromptLoader.Services
             var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (constrain)
             {
-                var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
-                if (promptOrder != null)
-                    allowedNames.UnionWith(promptOrder);
+                var promptList = _config.GetSection("PromptList").Get<string[]>();
+                if (promptList != null)
+                    allowedNames.UnionWith(promptList);
             }
 
             // Add Root set for the rootFolder itself (e.g., /PromptSets)

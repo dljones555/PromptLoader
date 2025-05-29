@@ -34,17 +34,17 @@ namespace PromptLoader.Services
             return result;
         }
 
-        // New overload: uses PromptOrder from configuration
+        // New overload: uses PromptList from configuration
         public static string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, IConfiguration config)
         {
             if (!promptSets.TryGetValue(setName, out var promptSet))
                 throw new KeyNotFoundException($"Prompt set '{setName}' not found.");
 
-            var promptOrder = config.GetSection("PromptOrder").Get<string[]>(); // 'Get' requires Microsoft.Extensions.Configuration.Binder
-            if (promptOrder != null && promptOrder.Length > 0)
+            var promptList = config.GetSection("PromptList").Get<string[]>(); // 'Get' requires Microsoft.Extensions.Configuration.Binder
+            if (promptList != null && promptList.Length > 0)
             {
                 var ordered = new List<string>();
-                foreach (var key in promptOrder)
+                foreach (var key in promptList)
                 {
                     if (promptSet.Prompts.TryGetValue(key, out var prompt))
                         ordered.Add(prompt.Text);

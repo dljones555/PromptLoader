@@ -160,7 +160,7 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_ConstrainPromptList_OnlyLoadsPromptOrderFiles()
+    public void LoadPrompts_ConstrainPromptList_OnlyLoadsPromptListFiles()
     {
         // Arrange
         var configBuilder = new ConfigurationBuilder();
@@ -168,8 +168,8 @@ public class PromptLoaderTests : IDisposable
         {
             new KeyValuePair<string, string>("PromptsFolder", _testDir),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
             new KeyValuePair<string, string>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
@@ -197,8 +197,8 @@ public class PromptLoaderTests : IDisposable
         {
             new KeyValuePair<string, string>("PromptsFolder", _testDir),
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptOrder:0", "system"),
-            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
             new KeyValuePair<string, string>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
