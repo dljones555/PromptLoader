@@ -389,4 +389,78 @@ public class PromptSetLoaderTests
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
+
+    [Fact]
+    public void LoadPromptSets_ConstrainPromptList_OnlyLoadsPromptOrderFiles()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        var setDir = Path.Combine(tempRoot, "SetA");
+        Directory.CreateDirectory(setDir);
+        File.WriteAllText(Path.Combine(setDir, "system.prompt"), "System Prompt");
+        File.WriteAllText(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
+        File.WriteAllText(Path.Combine(setDir, "other.prompt"), "Other Prompt");
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("ConstrainPromptList", "true")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act
+        var sets = promptService.LoadPromptSets();
+        var setA = sets["SetA"]["Root"];
+
+        // Assert
+        Assert.Equal(2, setA.Prompts.Count);
+        Assert.Contains("system", setA.Prompts.Keys);
+        Assert.Contains("instructions", setA.Prompts.Keys);
+        Assert.DoesNotContain("other", setA.Prompts.Keys);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
+
+    [Fact]
+    public void LoadPromptSets_ConstrainPromptList_False_LoadsAllSupportedFiles()
+    {
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        var setDir = Path.Combine(tempRoot, "SetA");
+        Directory.CreateDirectory(setDir);
+        File.WriteAllText(Path.Combine(setDir, "system.prompt"), "System Prompt");
+        File.WriteAllText(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
+        File.WriteAllText(Path.Combine(setDir, "other.prompt"), "Other Prompt");
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("ConstrainPromptList", "false")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        // Act
+        var sets = promptService.LoadPromptSets();
+        var setA = sets["SetA"]["Root"];
+
+        // Assert
+        Assert.Equal(3, setA.Prompts.Count);
+        Assert.Contains("system", setA.Prompts.Keys);
+        Assert.Contains("instructions", setA.Prompts.Keys);
+        Assert.Contains("other", setA.Prompts.Keys);
+
+        // Cleanup
+        Directory.Delete(tempRoot, true);
+    }
 }

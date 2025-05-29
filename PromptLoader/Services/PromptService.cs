@@ -177,14 +177,24 @@ namespace PromptLoader.Services
 
             var prompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
 
+            // Constrain prompt list logic
+            bool constrain = _config.GetValue("ConstrainPromptList", false);
+            var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (constrain)
+            {
+                var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
+                if (promptOrder != null)
+                    allowedNames.UnionWith(promptOrder);
+            }
+
             foreach (var file in promptFiles)
             {
                 var name = Path.GetFileNameWithoutExtension(file);
+                if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
+                    continue;
                 var content = File.ReadAllText(file);
                 var format = GetFormatFromExtension(Path.GetExtension(file));
-
                 var prompt = new Prompt(content, format);
-
                 if (cascadeOverride && prompts.ContainsKey(name))
                 {
                     prompts[name] = prompt;
@@ -205,6 +215,16 @@ namespace PromptLoader.Services
 
             var result = new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
 
+            // Constrain prompt list logic
+            bool constrain = _config.GetValue("ConstrainPromptList", false);
+            var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (constrain)
+            {
+                var promptOrder = _config.GetSection("PromptOrder").Get<string[]>();
+                if (promptOrder != null)
+                    allowedNames.UnionWith(promptOrder);
+            }
+
             // Add Root set for the rootFolder itself (e.g., /PromptSets)
             var rootLevelPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
             foreach (var file in Directory.GetFiles(rootFolder, "*.*", SearchOption.TopDirectoryOnly))
@@ -212,6 +232,8 @@ namespace PromptLoader.Services
                 var ext = Path.GetExtension(file);
                 if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
                 var name = Path.GetFileNameWithoutExtension(file);
+                if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
+                    continue;
                 var content = File.ReadAllText(file);
                 var format = GetFormatFromExtension(ext);
                 rootLevelPrompts[name] = new Prompt(content, format);
@@ -236,6 +258,8 @@ namespace PromptLoader.Services
                     var ext = Path.GetExtension(file);
                     if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
                     var name = Path.GetFileNameWithoutExtension(file);
+                    if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
+                        continue;
                     var content = File.ReadAllText(file);
                     var format = GetFormatFromExtension(ext);
                     rootPrompts[name] = new Prompt(content, format);
@@ -256,6 +280,8 @@ namespace PromptLoader.Services
                         var ext = Path.GetExtension(file);
                         if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
                         var name = Path.GetFileNameWithoutExtension(file);
+                        if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
+                            continue;
                         var content = File.ReadAllText(file);
                         var format = GetFormatFromExtension(ext);
                         subPrompts[name] = new Prompt(content, format);

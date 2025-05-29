@@ -159,6 +159,64 @@ public class PromptLoaderTests : IDisposable
         Assert.Null(prompt2);
     }
 
+    [Fact]
+    public void LoadPrompts_ConstrainPromptList_OnlyLoadsPromptOrderFiles()
+    {
+        // Arrange
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptsFolder", _testDir),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("ConstrainPromptList", "true")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+        File.WriteAllText(Path.Combine(_testDir, "system.prompt"), "System Prompt");
+        File.WriteAllText(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
+        File.WriteAllText(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
+
+        // Act
+        var prompts = promptService.LoadPrompts();
+
+        // Assert
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains("system", prompts.Keys);
+        Assert.Contains("instructions", prompts.Keys);
+        Assert.DoesNotContain("other", prompts.Keys);
+    }
+
+    [Fact]
+    public void LoadPrompts_ConstrainPromptList_False_LoadsAllSupportedFiles()
+    {
+        // Arrange
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptsFolder", _testDir),
+            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PromptOrder:0", "system"),
+            new KeyValuePair<string, string>("PromptOrder:1", "instructions"),
+            new KeyValuePair<string, string>("ConstrainPromptList", "false")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+        File.WriteAllText(Path.Combine(_testDir, "system.prompt"), "System Prompt");
+        File.WriteAllText(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
+        File.WriteAllText(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
+
+        // Act
+        var prompts = promptService.LoadPrompts();
+
+        // Assert
+        Assert.Equal(3, prompts.Count);
+        Assert.Contains("system", prompts.Keys);
+        Assert.Contains("instructions", prompts.Keys);
+        Assert.Contains("other", prompts.Keys);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDir))
