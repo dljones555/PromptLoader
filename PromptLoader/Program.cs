@@ -28,7 +28,7 @@ var apiKey = Environment.GetEnvironmentVariable("OpenAI:ApiKey") ?? config["Open
 
 if (string.IsNullOrEmpty(apiKey))
 {
-    throw new InvalidOperationException("OpenAI API key is not set. Please set it in appsettings.json or as an environment variable.");
+    throw new InvalidOperationException("OpenAI API key is not set. Please set it as an environment variable.");
 }
 
 builder.AddOpenAIChatCompletion(
@@ -38,8 +38,8 @@ builder.AddOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-var prompts = promptService.LoadPrompts();
-var promptSets = promptService.LoadPromptSets();
+var prompts = await promptService.LoadPromptsAsync();
+var promptSets = await promptService.LoadPromptSetsAsync();
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
 var salesPromptContext = promptService.GetCombinedPrompts(promptSets["Sales"].Root());
@@ -51,7 +51,7 @@ var singlePromptPath = Path.Combine(
     PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts"),
     "sample.prompt.yml"
 );
-var singlePrompt = promptService.LoadPrompt(singlePromptPath);
+var singlePrompt = await promptService.LoadPromptAsync(singlePromptPath);
 
 // Prepare chat history with a system prompt and user/assistant pairs  
 var chatHistory = new ChatHistory();

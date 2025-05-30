@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 using PromptLoader.Utils;
@@ -20,12 +20,12 @@ namespace PromptLoader.Services
     {
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
-        PromptListType PromptListType { get; }
-        Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null);
-        Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null);
+        PromptListType PromptListType { get; }              
+        Task<Dictionary<string, Prompt>> LoadPromptsAsync(bool cascadeOverride = true, string? promptsFolder = null);
+        Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsAsync(bool cascadeOverride = true, string? promptSetFolder = null);
         string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null);
         string GetCombinedPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null);
-        Prompt? LoadPrompt(string filePath);
+        Task<Prompt?> LoadPromptAsync(string filePath);
     }
 
     /// <summary>
@@ -49,24 +49,24 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Loads all prompts from the configured prompts folder or a specified folder.
+        /// Loads all prompts from the configured prompts folder or a specified folder asynchronously.
         /// </summary>
-        public Dictionary<string, Prompt> LoadPrompts(bool cascadeOverride = true, string? promptsFolder = null)
+        public async Task<Dictionary<string, Prompt>> LoadPromptsAsync(bool cascadeOverride = true, string? promptsFolder = null)
         {
             var folder = promptsFolder ?? PathUtils.ResolvePromptPath(_config["PromptsFolder"] ?? "Prompts");
             EnsureSupportedExtensionsLoaded();
-            Prompts = LoadPromptsInternal(folder, cascadeOverride);
+            Prompts = await LoadPromptsInternalAsync(folder, cascadeOverride);
             return Prompts;
         }
 
         /// <summary>
-        /// Loads all prompt sets from the configured prompt set folder or a specified folder.
+        /// Loads all prompt sets from the configured prompt set folder or a specified folder asynchronously.
         /// </summary>
-        public Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSets(bool cascadeOverride = true, string? promptSetFolder = null)
+        public async Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsAsync(bool cascadeOverride = true, string? promptSetFolder = null)
         {
             var folder = promptSetFolder ?? PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
             EnsureSupportedExtensionsLoaded();
-            PromptSets = LoadPromptSetsInternal(folder, cascadeOverride);
+            PromptSets = await LoadPromptSetsInternalAsync(folder, cascadeOverride);
             return PromptSets;
         }
 
@@ -134,9 +134,9 @@ namespace PromptLoader.Services
         }
 
         /// <summary>
-        /// Loads a single prompt from a file.
+        /// Loads a single prompt from a file asynchronously.
         /// </summary>
-        public Prompt? LoadPrompt(string filePath)
+        public async Task<Prompt?> LoadPromptAsync(string filePath)
         {
             EnsureSupportedExtensionsLoaded();
             if (!File.Exists(filePath))
@@ -144,7 +144,7 @@ namespace PromptLoader.Services
             var ext = Path.GetExtension(filePath);
             if (!_supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
                 return null;
-            var content = File.ReadAllText(filePath);
+            var content = await File.ReadAllTextAsync(filePath);
             var format = GetFormatFromExtension(ext);
             return new Prompt(content, format);
         }
@@ -166,7 +166,7 @@ namespace PromptLoader.Services
             }
         }
 
-        private Dictionary<string, Prompt> LoadPromptsInternal(string folderPath, bool cascadeOverride = true)
+        private async Task<Dictionary<string, Prompt>> LoadPromptsInternalAsync(string folderPath, bool cascadeOverride = true)
         {
             if (!Directory.Exists(folderPath))
                 return new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
@@ -192,7 +192,7 @@ namespace PromptLoader.Services
                 var name = Path.GetFileNameWithoutExtension(file);
                 if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
                     continue;
-                var content = File.ReadAllText(file);
+                var content = await File.ReadAllTextAsync(file);
                 var format = GetFormatFromExtension(Path.GetExtension(file));
                 var prompt = new Prompt(content, format);
                 if (cascadeOverride && prompts.ContainsKey(name))
@@ -208,7 +208,7 @@ namespace PromptLoader.Services
             return prompts;
         }
 
-        private Dictionary<string, Dictionary<string, PromptSet>> LoadPromptSetsInternal(string rootFolder, bool cascadeOverride = true)
+        private async Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsInternalAsync(string rootFolder, bool cascadeOverride = true)
         {
             if (!Directory.Exists(rootFolder))
                 return new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
@@ -234,7 +234,7 @@ namespace PromptLoader.Services
                 var name = Path.GetFileNameWithoutExtension(file);
                 if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
                     continue;
-                var content = File.ReadAllText(file);
+                var content = await File.ReadAllTextAsync(file);
                 var format = GetFormatFromExtension(ext);
                 rootLevelPrompts[name] = new Prompt(content, format);
             }
@@ -260,7 +260,7 @@ namespace PromptLoader.Services
                     var name = Path.GetFileNameWithoutExtension(file);
                     if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
                         continue;
-                    var content = File.ReadAllText(file);
+                    var content = await File.ReadAllTextAsync(file);
                     var format = GetFormatFromExtension(ext);
                     rootPrompts[name] = new Prompt(content, format);
                 }
@@ -282,7 +282,7 @@ namespace PromptLoader.Services
                         var name = Path.GetFileNameWithoutExtension(file);
                         if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
                             continue;
-                        var content = File.ReadAllText(file);
+                        var content = await File.ReadAllTextAsync(file);
                         var format = GetFormatFromExtension(ext);
                         subPrompts[name] = new Prompt(content, format);
                     }

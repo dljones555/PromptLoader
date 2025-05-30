@@ -20,7 +20,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_ReturnsCorrectPromptSets()
+    public async Task LoadPromptSets_ReturnsCorrectPromptSets()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -28,20 +28,20 @@ public class PromptSetLoaderTests
 
         var setDir = Path.Combine(tempRoot, "SetA");
         Directory.CreateDirectory(setDir);
-        File.WriteAllText(Path.Combine(setDir, "a.prompt"), "Prompt A");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "a.prompt"), "Prompt A");
 
         // Inject test folder into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Single(sets); // Only SetA
@@ -58,7 +58,7 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_HandlesNestedPromptSets()
+    public async Task LoadPromptSets_HandlesNestedPromptSets()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -73,23 +73,23 @@ public class PromptSetLoaderTests
         Directory.CreateDirectory(salesDir);
 
         // Create dummy prompt files with supported extensions
-        File.WriteAllText(Path.Combine(refundDir, "refund.prompt"), "Refund prompt");
-        File.WriteAllText(Path.Combine(policyDir, "policy.prompt"), "Policy prompt");
-        File.WriteAllText(Path.Combine(salesDir, "examples.prompt"), "Sales example");
-        File.WriteAllText(Path.Combine(salesDir, "instructions.prompt"), "Sales instructions");
+        await File.WriteAllTextAsync(Path.Combine(refundDir, "refund.prompt"), "Refund prompt");
+        await File.WriteAllTextAsync(Path.Combine(policyDir, "policy.prompt"), "Policy prompt");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.prompt"), "Sales example");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.prompt"), "Sales instructions");
 
         // Inject test folder into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Contains("CustomerService", sets.Keys);
@@ -119,28 +119,28 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_LoadsMdFilesInRootPromptSet()
+    public async Task LoadPromptSets_LoadsMdFilesInRootPromptSet()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
         var salesDir = Path.Combine(tempRoot, "Sales");
         Directory.CreateDirectory(salesDir);
-        File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales example");
-        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales instructions");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.md"), "Sales example");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales instructions");
 
         // Inject test folder into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".md")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Contains("Sales", sets.Keys);
@@ -156,24 +156,24 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_LoadsFromCustomFolder()
+    public async Task LoadPromptSets_LoadsFromCustomFolder()
     {
         // Arrange
         var customDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(customDir);
         var setDir = Path.Combine(customDir, "CustomSet");
         Directory.CreateDirectory(setDir);
-        File.WriteAllText(Path.Combine(setDir, "a.prompt"), "Prompt A");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "a.prompt"), "Prompt A");
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
 
         // Act
-        var sets = promptService.LoadPromptSets(promptSetFolder: customDir);
+        var sets = await promptService.LoadPromptSetsAsync(false, customDir);
 
         // Assert
         Assert.Single(sets); // Only CustomSet
@@ -189,22 +189,22 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_NonExistentFolder_HandledGracefully()
+    public async Task LoadPromptSets_NonExistentFolder_HandledGracefully()
     {
         // Arrange
         var nonExistentDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
 
         // Act & Assert
-        var ex = Record.Exception(() => promptService.LoadPromptSets(promptSetFolder: nonExistentDir));
+        var ex = await Record.ExceptionAsync(() => promptService.LoadPromptSetsAsync(false, nonExistentDir));
         Assert.Null(ex); // Should not throw
-        var sets = promptService.LoadPromptSets(promptSetFolder: nonExistentDir);
+        var sets = await promptService.LoadPromptSetsAsync(false, nonExistentDir);
         Assert.Empty(sets);
     }
 
@@ -237,8 +237,8 @@ public class PromptSetLoaderTests
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions")
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
@@ -264,7 +264,7 @@ public class PromptSetLoaderTests
 
         var config = new ConfigurationBuilder().Build();
         var promptService = new PromptService(config);
-        
+
         // Act
         var result = promptService.GetCombinedPrompts(sets, "set1");
 
@@ -290,9 +290,9 @@ public class PromptSetLoaderTests
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string>("PromptList:2", "examples")
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "instructions"),
+            new KeyValuePair<string, string?>("PromptList:2", "examples")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
@@ -305,30 +305,30 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void GetCombinedPrompts_UsesRootPromptIfMissingInSubdir()
+    public async Task GetCombinedPrompts_UsesRootPromptIfMissingInSubdir()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-        File.WriteAllText(Path.Combine(tempRoot, "system.md"), "Root System");
+        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Root System");
         var salesDir = Path.Combine(tempRoot, "Sales");
         Directory.CreateDirectory(salesDir);
-        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
         // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".md"),
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
         var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
@@ -346,32 +346,32 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void GetCombinedPrompts_SalesSet_InheritsSystemFromRoot()
+    public async Task GetCombinedPrompts_SalesSet_InheritsSystemFromRoot()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-        File.WriteAllText(Path.Combine(tempRoot, "system.md"), "Root System");
+        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Root System");
         var salesDir = Path.Combine(tempRoot, "Sales");
         Directory.CreateDirectory(salesDir);
-        File.WriteAllText(Path.Combine(salesDir, "examples.md"), "Sales Example");
-        File.WriteAllText(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.md"), "Sales Example");
+        await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
         // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".md"),
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "examples"),
-            new KeyValuePair<string, string>("PromptList:2", "instructions")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".md"),
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "examples"),
+            new KeyValuePair<string, string?>("PromptList:2", "instructions")
         });
         var testConfig = configBuilder.Build();
         var promptService = new PromptService(testConfig);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
         var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
@@ -391,30 +391,30 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_ConstrainPromptList_OnlyLoadsPromptListFiles()
+    public async Task LoadPromptSets_ConstrainPromptList_OnlyLoadsPromptListFiles()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
         var setDir = Path.Combine(tempRoot, "SetA");
         Directory.CreateDirectory(setDir);
-        File.WriteAllText(Path.Combine(setDir, "system.prompt"), "System Prompt");
-        File.WriteAllText(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
-        File.WriteAllText(Path.Combine(setDir, "other.prompt"), "Other Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "system.prompt"), "System Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "other.prompt"), "Other Prompt");
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string>("ConstrainPromptList", "true")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "instructions"),
+            new KeyValuePair<string, string?>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
         var setA = sets["SetA"]["Root"];
 
         // Assert
@@ -428,30 +428,30 @@ public class PromptSetLoaderTests
     }
 
     [Fact]
-    public void LoadPromptSets_ConstrainPromptList_False_LoadsAllSupportedFiles()
+    public async Task LoadPromptSets_ConstrainPromptList_False_LoadsAllSupportedFiles()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
         var setDir = Path.Combine(tempRoot, "SetA");
         Directory.CreateDirectory(setDir);
-        File.WriteAllText(Path.Combine(setDir, "system.prompt"), "System Prompt");
-        File.WriteAllText(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
-        File.WriteAllText(Path.Combine(setDir, "other.prompt"), "Other Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "system.prompt"), "System Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "instructions.prompt"), "Instructions Prompt");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "other.prompt"), "Other Prompt");
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string>("ConstrainPromptList", "false")
+            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string?>("PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptList:1", "instructions"),
+            new KeyValuePair<string, string?>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
 
         // Act
-        var sets = promptService.LoadPromptSets();
+        var sets = await promptService.LoadPromptSetsAsync(false, null);
         var setA = sets["SetA"]["Root"];
 
         // Assert
