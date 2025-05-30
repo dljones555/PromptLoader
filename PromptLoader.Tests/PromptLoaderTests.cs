@@ -8,7 +8,7 @@ using PromptLoader.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace PromptLoader.Tests;
-public class PromptLoaderTests : IDisposable
+public class PromptLoaderTests : IAsyncLifetime, IDisposable
 {
     private readonly string _testDir;
     private readonly IPromptService _promptService;
@@ -30,15 +30,15 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_LoadsSupportedFiles()
+    public async Task LoadPrompts_LoadsSupportedFiles()
     {
         // Arrange
-        File.WriteAllText(Path.Combine(_testDir, "a.prompt"), "Prompt A");
-        File.WriteAllText(Path.Combine(_testDir, "b.txt"), "Prompt B");
-        File.WriteAllText(Path.Combine(_testDir, "c.unsupported"), "Should be ignored");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "a.prompt"), "Prompt A");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "b.txt"), "Prompt B");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "c.unsupported"), "Should be ignored");
 
         // Act
-        var prompts = _promptService.LoadPrompts();
+        var prompts = await _promptService.LoadPromptsAsync();
 
         // Assert
         Assert.NotNull(prompts);
@@ -48,44 +48,44 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_CascadeOverride_True_OverridesDeeperPrompts()
+    public async Task LoadPrompts_CascadeOverride_True_OverridesDeeperPrompts()
     {
         // Arrange
         var subDir = Path.Combine(_testDir, "sub");
         Directory.CreateDirectory(subDir);
-        File.WriteAllText(Path.Combine(_testDir, "d.prompt"), "Root");
-        File.WriteAllText(Path.Combine(subDir, "d.prompt"), "Sub");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "d.prompt"), "Root");
+        await File.WriteAllTextAsync(Path.Combine(subDir, "d.prompt"), "Sub");
 
         // Act
-        var prompts = _promptService.LoadPrompts(cascadeOverride: true);
+        var prompts = await _promptService.LoadPromptsAsync(cascadeOverride: true);
 
         // Assert
         Assert.Equal("Sub", prompts["d"].Text);
     }
 
     [Fact]
-    public void LoadPrompts_CascadeOverride_False_KeepsFirstFound()
+    public async Task LoadPrompts_CascadeOverride_False_KeepsFirstFound()
     {
         // Arrange
         var subDir = Path.Combine(_testDir, "sub");
         Directory.CreateDirectory(subDir);
-        File.WriteAllText(Path.Combine(_testDir, "e.prompt"), "Root");
-        File.WriteAllText(Path.Combine(subDir, "e.prompt"), "Sub");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "e.prompt"), "Root");
+        await File.WriteAllTextAsync(Path.Combine(subDir, "e.prompt"), "Sub");
 
         // Act
-        var prompts = _promptService.LoadPrompts(cascadeOverride: false);
+        var prompts = await _promptService.LoadPromptsAsync(cascadeOverride: false);
 
         // Assert
         Assert.Equal("Root", prompts["e"].Text);
     }
 
     [Fact]
-    public void LoadPrompts_LoadsFromCustomFolder()
+    public async Task LoadPrompts_LoadsFromCustomFolder()
     {
         // Arrange
         var customDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(customDir);
-        File.WriteAllText(Path.Combine(customDir, "custom.prompt"), "Custom Prompt");
+        await File.WriteAllTextAsync(Path.Combine(customDir, "custom.prompt"), "Custom Prompt");
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
@@ -95,7 +95,7 @@ public class PromptLoaderTests : IDisposable
         var promptService = new PromptService(config);
 
         // Act
-        var prompts = promptService.LoadPrompts(promptsFolder: customDir);
+        var prompts = await promptService.LoadPromptsAsync(promptsFolder: customDir);
 
         // Assert
         Assert.Single(prompts);
@@ -107,7 +107,7 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_NonExistentFolder_HandledGracefully()
+    public async Task LoadPrompts_NonExistentFolder_HandledGracefully()
     {
         // Arrange
         var nonExistentDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -120,21 +120,21 @@ public class PromptLoaderTests : IDisposable
         var promptService = new PromptService(config);
 
         // Act & Assert
-        var ex = Record.Exception(() => promptService.LoadPrompts(promptsFolder: nonExistentDir));
+        var ex = await Record.ExceptionAsync(() => promptService.LoadPromptsAsync(promptsFolder: nonExistentDir));
         Assert.Null(ex); // Should not throw
-        var prompts = promptService.LoadPrompts(promptsFolder: nonExistentDir);
+        var prompts = await promptService.LoadPromptsAsync(promptsFolder: nonExistentDir);
         Assert.Empty(prompts);
     }
 
     [Fact]
-    public void LoadPrompt_LoadsSinglePromptFile()
+    public async Task LoadPrompt_LoadsSinglePromptFile()
     {
         // Arrange
         var filePath = Path.Combine(_testDir, "single.prompt");
-        File.WriteAllText(filePath, "Single Prompt Content");
+        await File.WriteAllTextAsync(filePath, "Single Prompt Content");
 
         // Act
-        var prompt = _promptService.LoadPrompt(filePath);
+        var prompt = await _promptService.LoadPromptAsync(filePath);
 
         // Assert
         Assert.NotNull(prompt);
@@ -143,16 +143,16 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompt_ReturnsNullForUnsupportedOrMissingFile()
+    public async Task LoadPrompt_ReturnsNullForUnsupportedOrMissingFile()
     {
         // Arrange
         var unsupportedFile = Path.Combine(_testDir, "unsupported.unsupported");
         var missingFile = Path.Combine(_testDir, "missing.prompt");
-        File.WriteAllText(unsupportedFile, "Should be ignored");
+        await File.WriteAllTextAsync(unsupportedFile, "Should be ignored");
 
         // Act
-        var prompt1 = _promptService.LoadPrompt(unsupportedFile);
-        var prompt2 = _promptService.LoadPrompt(missingFile);
+        var prompt1 = await _promptService.LoadPromptAsync(unsupportedFile);
+        var prompt2 = await _promptService.LoadPromptAsync(missingFile);
 
         // Assert
         Assert.Null(prompt1);
@@ -160,7 +160,7 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_ConstrainPromptList_OnlyLoadsPromptListFiles()
+    public async Task LoadPrompts_ConstrainPromptList_OnlyLoadsPromptListFiles()
     {
         // Arrange
         var configBuilder = new ConfigurationBuilder();
@@ -174,12 +174,12 @@ public class PromptLoaderTests : IDisposable
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
-        File.WriteAllText(Path.Combine(_testDir, "system.prompt"), "System Prompt");
-        File.WriteAllText(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
-        File.WriteAllText(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "system.prompt"), "System Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
 
         // Act
-        var prompts = promptService.LoadPrompts();
+        var prompts = await promptService.LoadPromptsAsync();
 
         // Assert
         Assert.Equal(2, prompts.Count);
@@ -189,7 +189,7 @@ public class PromptLoaderTests : IDisposable
     }
 
     [Fact]
-    public void LoadPrompts_ConstrainPromptList_False_LoadsAllSupportedFiles()
+    public async Task LoadPrompts_ConstrainPromptList_False_LoadsAllSupportedFiles()
     {
         // Arrange
         var configBuilder = new ConfigurationBuilder();
@@ -203,12 +203,12 @@ public class PromptLoaderTests : IDisposable
         });
         var config = configBuilder.Build();
         var promptService = new PromptService(config);
-        File.WriteAllText(Path.Combine(_testDir, "system.prompt"), "System Prompt");
-        File.WriteAllText(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
-        File.WriteAllText(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "system.prompt"), "System Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
+        await File.WriteAllTextAsync(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
 
         // Act
-        var prompts = promptService.LoadPrompts();
+        var prompts = await promptService.LoadPromptsAsync();
 
         // Assert
         Assert.Equal(3, prompts.Count);
@@ -216,6 +216,14 @@ public class PromptLoaderTests : IDisposable
         Assert.Contains("instructions", prompts.Keys);
         Assert.Contains("other", prompts.Keys);
     }
+
+    public async Task InitializeAsync() => await Task.CompletedTask;
+
+    public async Task DisposeAsync() => await Task.Run(() =>
+    {
+        if (Directory.Exists(_testDir))
+            Directory.Delete(_testDir, true);
+    });
 
     public void Dispose()
     {
