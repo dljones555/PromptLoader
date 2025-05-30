@@ -463,4 +463,33 @@ public class PromptSetLoaderTests
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
+
+    [Fact]
+    public void GetCombinedPrompts_PrependsFilenameHeaderOnFirstEntry()
+    {
+        var prompts = new Dictionary<string, Prompt>
+        {
+            { "system", new Prompt("You are a helpful agent.", PromptFormat.Plain) },
+            { "instructions", new Prompt("Follow the user’s request.", PromptFormat.Plain) }
+        };
+        var set = new PromptSet { Name = "Test", Prompts = prompts };
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptList:0", "system"),
+            new KeyValuePair<string, string>("PromptList:1", "instructions"),
+            new KeyValuePair<string, string>("PromptSeparator", "\n  {filename}:  \n")
+        });
+        var config = configBuilder.Build();
+        var promptService = new PromptService(config);
+
+        var result = promptService.GetCombinedPrompts(set);
+
+        // Should start with the header for the first prompt, trimmed
+        Assert.StartsWith("System:  \nYou are a helpful agent.", result);
+        // Should contain the header for the second prompt, trimmed
+        Assert.Contains("\n  Instructions:  \nFollow the user’s request.", result);
+        // Should not have extra whitespace in the header
+        Assert.DoesNotContain("  System:  ", result);
+    }
 }

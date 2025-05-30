@@ -97,40 +97,66 @@ namespace PromptLoader.Services
         /// <returns>Concatenated prompt text for the set, using the specified or configured separator.</returns>
         public string GetCombinedPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null)
         {
-            var sep = separator ?? _config["PromptSeparator"] ?? Environment.NewLine;
-            switch (PromptListType)
+            var sepTemplate = separator ?? _config["PromptSeparator"] ?? Environment.NewLine;
+            var builder = new System.Text.StringBuilder();
+            var promptList = _config.GetSection("PromptList").Get<string[]>() ?? promptSet.Prompts.Keys.ToArray();
+            var allKeys = new List<string>();
+
+            foreach (var key in promptList)
             {
-                case PromptListType.Named:
-                    var promptList = _config.GetSection("PromptList").Get<string[]>();
-                    if (promptList != null && promptList.Length > 0)
-                    {
-                        var ordered = new List<string>();
-                        foreach (var key in promptList)
-                        {
-                            if (promptSet.Prompts.TryGetValue(key, out var prompt))
-                                ordered.Add(prompt.Text);
-                            else if (rootSet != null && rootSet.Prompts.TryGetValue(key, out var rootPrompt))
-                                ordered.Add(rootPrompt.Text);
-                        }
-                        // Add any remaining prompts not in PromptList
-                        foreach (var kvp in promptSet.Prompts)
-                        {
-                            if (!promptList.Contains(kvp.Key))
-                                ordered.Add(kvp.Value.Text);
-                        }
-                        return string.Join(sep, ordered);
-                    }
-                    // Fallback: join all prompts in default order
-                    return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
-                case PromptListType.Numeric:
-                    var numericOrdered = promptSet.Prompts
-                        .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
-                        .Select(kvp => kvp.Value.Text);
-                    return string.Join(sep, numericOrdered);
-                case PromptListType.None:
-                default:
-                    return string.Join(sep, promptSet.Prompts.Values.Select(x => x.Text));
+                if (promptSet.Prompts.ContainsKey(key) || (rootSet != null && rootSet.Prompts.ContainsKey(key)))
+                    allKeys.Add(key);
             }
+            foreach (var kvp in promptSet.Prompts)
+            {
+                if (!promptList.Contains(kvp.Key))
+                    allKeys.Add(kvp.Key);
+            }
+            for (int i = 0; i < allKeys.Count; i++)
+            {
+                var key = allKeys[i];
+                Prompt? prompt = null;
+                if (promptSet.Prompts.TryGetValue(key, out var p))
+                {
+                    prompt = p;
+                }
+                else if (rootSet != null && rootSet.Prompts.TryGetValue(key, out var rp))
+                {
+                    prompt = rp;
+                }
+
+                if (prompt == null) 
+                    continue;
+                string pascal = ToPascalCase(key.Split('.')[0]);
+                bool useFilenameAsHeader = sepTemplate.Contains("{filename}");
+                string sep = useFilenameAsHeader ? sepTemplate.Replace("{filename}", pascal) : sepTemplate;
+                if (i == 0 && useFilenameAsHeader)
+                {
+                    builder.Append(sep.TrimStart());
+
+                    if (!sep.EndsWith("\n")) builder.AppendLine();
+                    builder.Append(prompt.Text);
+                }
+                else if (i > 0 && useFilenameAsHeader)
+                {
+                    builder.Append(sep);
+                    if (!sep.EndsWith("\n")) builder.AppendLine();
+                    builder.Append(prompt.Text);
+                }
+                else
+                {
+                    if (i > 0) builder.Append(sep);
+                    builder.Append(prompt.Text);
+                }
+            }
+            return builder.ToString().TrimEnd();
+        }
+
+        // Helper to convert a string to PascalCase
+        private static string ToPascalCase(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+            return char.ToUpperInvariant(input[0]) + input.Substring(1).ToLowerInvariant();
         }
 
         /// <summary>

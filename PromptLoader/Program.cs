@@ -42,7 +42,7 @@ var prompts = await promptService.LoadPromptsAsync();
 var promptSets = await promptService.LoadPromptSetsAsync();
 
 var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContext = promptService.GetCombinedPrompts(promptSets["Sales"].Root());
+var salesPromptContext = promptService.GetCombinedPrompts(promptSets["Sales"].Root(), promptSets["Root"]["Root"]);
 // This is the GitHub Models format.  
 PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
 
