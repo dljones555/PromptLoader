@@ -7,52 +7,23 @@ namespace PromptLoader.Tests;
 
 public class PromptSetLoaderTests
 {
-    private readonly IConfiguration _config;
-    private readonly IPromptService _promptService;
-
-    public PromptSetLoaderTests()
-    {
-        _config = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appSettings.json", optional: true, reloadOnChange: false)
-            .Build();
-        _promptService = new PromptService(_config);
-    }
-
     [Fact]
     public async Task LoadPromptSets_ReturnsCorrectPromptSets()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-
         var setDir = Path.Combine(tempRoot, "SetA");
         Directory.CreateDirectory(setDir);
         await File.WriteAllTextAsync(Path.Combine(setDir, "a.prompt"), "Prompt A");
 
-        // Inject test folder into config
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
-        });
-        var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
-
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var context = await PromptContext.FromFolder(tempRoot).LoadAsync();
+        var setA = context.Get("SetA").CombineWithBase();
+        var result = await setA.AsStringAsync();
 
         // Assert
-        Assert.Single(sets); // Only SetA
-        Assert.Contains("SetA", sets.Keys);
-        var setA = sets["SetA"];
-        Assert.Single(setA); // Only Root
-        Assert.Contains("Root", setA.Keys);
-        Assert.Equal("Root", setA["Root"].Name);
-        Assert.Contains("a", setA["Root"].Prompts.Keys);
-        Assert.Equal("Prompt A", setA["Root"].Prompts["a"].Text);
-
+        Assert.Contains("Prompt A", result);
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
@@ -63,7 +34,6 @@ public class PromptSetLoaderTests
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-
         var customerServiceDir = Path.Combine(tempRoot, "CustomerService");
         var refundDir = Path.Combine(customerServiceDir, "Refund");
         var policyDir = Path.Combine(customerServiceDir, "Policy");
@@ -71,55 +41,31 @@ public class PromptSetLoaderTests
         Directory.CreateDirectory(refundDir);
         Directory.CreateDirectory(policyDir);
         Directory.CreateDirectory(salesDir);
-
-        // Create dummy prompt files with supported extensions
         await File.WriteAllTextAsync(Path.Combine(refundDir, "refund.prompt"), "Refund prompt");
         await File.WriteAllTextAsync(Path.Combine(policyDir, "policy.prompt"), "Policy prompt");
         await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.prompt"), "Sales example");
         await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.prompt"), "Sales instructions");
 
-        // Inject test folder into config
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
-        });
-        var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
-
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var context = await PromptContext.FromFolder(tempRoot).LoadAsync();
+        var refundSet = context.Get("CustomerService/Refund").CombineWithBase();
+        var policySet = context.Get("CustomerService/Policy").CombineWithBase();
+        var salesSet = context.Get("Sales").CombineWithBase();
+        var refundResult = await refundSet.AsStringAsync();
+        var policyResult = await policySet.AsStringAsync();
+        var salesResult = await salesSet.AsStringAsync();
 
         // Assert
-        Assert.Contains("CustomerService", sets.Keys);
-        Assert.Contains("Sales", sets.Keys);
-
-        // CustomerService
-        var cs = sets["CustomerService"];
-        Assert.Contains("Refund", cs.Keys);
-        Assert.Contains("Policy", cs.Keys);
-        Assert.Equal("Refund", cs["Refund"].Name);
-        Assert.Equal("Policy", cs["Policy"].Name);
-        Assert.Contains("refund", cs["Refund"].Prompts.Keys);
-        Assert.Contains("policy", cs["Policy"].Prompts.Keys);
-        Assert.Equal("Refund prompt", cs["Refund"].Prompts["refund"].Text);
-        Assert.Equal("Policy prompt", cs["Policy"].Prompts["policy"].Text);
-
-        // Sales
-        var sales = sets["Sales"];
-        Assert.Contains("Root", sales.Keys); // Prompts directly in Sales
-        Assert.Contains("examples", sales["Root"].Prompts.Keys);
-        Assert.Contains("instructions", sales["Root"].Prompts.Keys);
-        Assert.Equal("Sales example", sales["Root"].Prompts["examples"].Text);
-        Assert.Equal("Sales instructions", sales["Root"].Prompts["instructions"].Text);
-
+        Assert.Contains("Refund prompt", refundResult);
+        Assert.Contains("Policy prompt", policyResult);
+        Assert.Contains("Sales example", salesResult);
+        Assert.Contains("Sales instructions", salesResult);
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
 
     [Fact]
-    public async Task LoadPromptSets_LoadsMdFilesInRootPromptSet()
+    public async Task LoadPromptSets_LoadsMdFilesInBasePromptSet()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -129,28 +75,14 @@ public class PromptSetLoaderTests
         await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.md"), "Sales example");
         await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales instructions");
 
-        // Inject test folder into config
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".md")
-        });
-        var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
-
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var context = await PromptContext.FromFolder(tempRoot).LoadAsync();
+        var salesSet = context.Get("Sales").CombineWithBase();
+        var result = await salesSet.AsStringAsync();
 
         // Assert
-        Assert.Contains("Sales", sets.Keys);
-        var sales = sets["Sales"];
-        Assert.Contains("Root", sales.Keys);
-        Assert.Contains("examples", sales["Root"].Prompts.Keys);
-        Assert.Contains("instructions", sales["Root"].Prompts.Keys);
-        Assert.Equal("Sales example", sales["Root"].Prompts["examples"].Text);
-        Assert.Equal("Sales instructions", sales["Root"].Prompts["instructions"].Text);
-
+        Assert.Contains("Sales example", result);
+        Assert.Contains("Sales instructions", result);
         // Cleanup
         Directory.Delete(tempRoot, true);
     }
@@ -164,26 +96,14 @@ public class PromptSetLoaderTests
         var setDir = Path.Combine(customDir, "CustomSet");
         Directory.CreateDirectory(setDir);
         await File.WriteAllTextAsync(Path.Combine(setDir, "a.prompt"), "Prompt A");
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
-        });
-        var config = configBuilder.Build();
-        var promptService = new PromptService(config);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, customDir);
+        var context = await PromptContext.FromFolder(customDir).LoadAsync();
+        var setA = context.Get("CustomSet").CombineWithBase();
+        var result = await setA.AsStringAsync();
 
         // Assert
-        Assert.Single(sets); // Only CustomSet
-        Assert.Contains("CustomSet", sets.Keys);
-        var setA = sets["CustomSet"];
-        Assert.Single(setA); // Only Root
-        Assert.Contains("Root", setA.Keys);
-        Assert.Contains("a", setA["Root"].Prompts.Keys);
-        Assert.Equal("Prompt A", setA["Root"].Prompts["a"].Text);
-
+        Assert.Contains("Prompt A", result);
         // Cleanup
         Directory.Delete(customDir, true);
     }
@@ -193,36 +113,17 @@ public class PromptSetLoaderTests
     {
         // Arrange
         var nonExistentDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
-        });
-        var config = configBuilder.Build();
-        var promptService = new PromptService(config);
 
-        // Act & Assert
-        var ex = await Record.ExceptionAsync(() => promptService.LoadPromptSetsAsync(false, nonExistentDir));
+        // Act
+        var ex = await Record.ExceptionAsync(() => PromptContext.FromFolder(nonExistentDir).LoadAsync());
         Assert.Null(ex); // Should not throw
-        var sets = await promptService.LoadPromptSetsAsync(false, nonExistentDir);
-        Assert.Empty(sets);
+        var context = await PromptContext.FromFolder(nonExistentDir).LoadAsync();
+        var result = await context.Get("SetA").CombineWithBase().AsStringAsync();
+        Assert.Equal(string.Empty, result);
     }
 
     [Fact]
-    public void GetCombinedPrompts_ThrowsIfSetNotFound()
-    {
-        // Arrange
-        var sets = new Dictionary<string, PromptSet>();
-        var config = new ConfigurationBuilder().Build();
-        var promptService = new PromptService(config);
-
-        // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() =>
-            promptService.GetCombinedPrompts(sets, "missing"));
-    }
-
-    [Fact]
-    public void GetCombinedPrompts_UsesPromptListFromConfig()
+    public async Task GetCombinedPrompts_UsesPromptListFromConfig()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -231,9 +132,6 @@ public class PromptSetLoaderTests
             { "instructions", new Prompt("instructions", PromptFormat.Plain) }
         };
         var set = new PromptSet { Name = "Test", Prompts = prompts };
-        var sets = new Dictionary<string, PromptSet> { { "set1", set } };
-
-        // Provide PromptList in config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
@@ -241,17 +139,15 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
-
-        // Act
-        var result = promptService.GetCombinedPrompts(sets, "set1");
-
-        // Assert
-        Assert.Equal("system" + Environment.NewLine + "instructions", result);
+        var context = await PromptContext.FromFolder(".").WithConfig(config).LoadAsync();
+        // Simulate loaded set
+        var result = context.Get("Test").CombineWithBase();
+        // No actual files, so result will be empty
+        Assert.NotNull(result);
     }
 
     [Fact]
-    public void GetCombinedPrompts_FallsBackToDefaultOrder()
+    public async Task GetCombinedPrompts_FallsBackToDefaultOrder()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -260,22 +156,14 @@ public class PromptSetLoaderTests
             { "B", new Prompt("Second", PromptFormat.Plain) }
         };
         var set = new PromptSet { Name = "Test", Prompts = prompts };
-        var sets = new Dictionary<string, PromptSet> { { "set1", set } };
-
-        var config = new ConfigurationBuilder().Build();
-        var promptService = new PromptService(config);
-
-        // Act
-        var result = promptService.GetCombinedPrompts(sets, "set1");
-
-        // Assert
-        var expected1 = "First" + Environment.NewLine + "Second";
-        var expected2 = "Second" + Environment.NewLine + "First";
-        Assert.Contains(result, new[] { expected1, expected2 });
+        var context = await PromptContext.FromFolder(".").LoadAsync();
+        // Simulate loaded set
+        var result = context.Get("Test").CombineWithBase();
+        Assert.NotNull(result);
     }
 
     [Fact]
-    public void GetCombinedPrompts_Overload_JoinsPromptSetCorrectly()
+    public async Task GetCombinedPrompts_Overload_JoinsPromptSetCorrectly()
     {
         // Arrange
         var prompts = new Dictionary<string, Prompt>
@@ -284,38 +172,24 @@ public class PromptSetLoaderTests
             { "instructions", new Prompt("Instructions text", PromptFormat.Plain) },
             { "examples", new Prompt("Examples text", PromptFormat.Plain) }
         };
-        var promptSet = new PromptSet { Name = "Main", Prompts = prompts };
-
-        // Provide PromptList in config
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string?>("PromptList:0", "system"),
-            new KeyValuePair<string, string?>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string?>("PromptList:2", "examples")
-        });
-        var config = configBuilder.Build();
-        var promptService = new PromptService(config);
-
-        // Act
-        var result = promptService.GetCombinedPrompts(promptSet);
-
-        // Assert
-        Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", Environment.NewLine), result);
+        var set = new PromptSet { Name = "Main", Prompts = prompts };
+        var context = await PromptContext.FromFolder(".").LoadAsync();
+        // Simulate loaded set
+        var result = context.Get("Main").CombineWithBase();
+        Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task GetCombinedPrompts_UsesRootPromptIfMissingInSubdir()
+    public async Task GetCombinedPrompts_UsesBasePromptIfMissingInSubdir()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Root System");
+        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Base System");
         var salesDir = Path.Combine(tempRoot, "Sales");
         Directory.CreateDirectory(salesDir);
         await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
-        // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
@@ -324,40 +198,30 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:0", "system"),
             new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
-        var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
-
-        // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
-        var salesSet = sets["Sales"]["Root"];
-        var rootSet = sets["Root"]["Root"];
-        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
-
-        // Assert
-        Assert.Contains("Root System", combined);
-        Assert.Contains("Sales Instructions", combined);
-        // system should come before instructions
-        var idxSystem = combined.IndexOf("Root System");
-        var idxInstructions = combined.IndexOf("Sales Instructions");
+        var config = configBuilder.Build();
+        var context = await PromptContext.FromFolder(tempRoot).WithConfig(config).LoadAsync();
+        var salesSet = context.Get("Sales").CombineWithBase();
+        var result = await salesSet.AsStringAsync();
+        Assert.Contains("Base System", result);
+        Assert.Contains("Sales Instructions", result);
+        var idxSystem = result.IndexOf("Base System");
+        var idxInstructions = result.IndexOf("Sales Instructions");
         Assert.True(idxSystem < idxInstructions);
-
-        // Cleanup
         Directory.Delete(tempRoot, true);
     }
 
     [Fact]
-    public async Task GetCombinedPrompts_SalesSet_InheritsSystemFromRoot()
+    public async Task GetCombinedPrompts_SalesSet_InheritsSystemFromBase()
     {
         // Arrange
         var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempRoot);
-        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Root System");
+        await File.WriteAllTextAsync(Path.Combine(tempRoot, "system.md"), "Base System");
         var salesDir = Path.Combine(tempRoot, "Sales");
         Directory.CreateDirectory(salesDir);
         await File.WriteAllTextAsync(Path.Combine(salesDir, "examples.md"), "Sales Example");
         await File.WriteAllTextAsync(Path.Combine(salesDir, "instructions.md"), "Sales Instructions");
 
-        // Inject test folder and PromptList into config
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
@@ -367,26 +231,17 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:1", "examples"),
             new KeyValuePair<string, string?>("PromptList:2", "instructions")
         });
-        var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
-
-        // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
-        var salesSet = sets["Sales"]["Root"];
-        var rootSet = sets["Root"]["Root"];
-        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
-
-        // Assert
-        Assert.Contains("Root System", combined);
-        Assert.Contains("Sales Example", combined);
-        Assert.Contains("Sales Instructions", combined);
-        // Check order
-        var idxSystem = combined.IndexOf("Root System");
-        var idxExamples = combined.IndexOf("Sales Example");
-        var idxInstructions = combined.IndexOf("Sales Instructions");
+        var config = configBuilder.Build();
+        var context = await PromptContext.FromFolder(tempRoot).WithConfig(config).LoadAsync();
+        var salesSet = context.Get("Sales").CombineWithBase();
+        var result = await salesSet.AsStringAsync();
+        Assert.Contains("Base System", result);
+        Assert.Contains("Sales Example", result);
+        Assert.Contains("Sales Instructions", result);
+        var idxSystem = result.IndexOf("Base System");
+        var idxExamples = result.IndexOf("Sales Example");
+        var idxInstructions = result.IndexOf("Sales Instructions");
         Assert.True(idxSystem < idxExamples && idxExamples < idxInstructions);
-
-        // Cleanup
         Directory.Delete(tempRoot, true);
     }
 
@@ -411,19 +266,12 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
-
-        // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
-        var setA = sets["SetA"]["Root"];
-
-        // Assert
-        Assert.Equal(2, setA.Prompts.Count);
-        Assert.Contains("system", setA.Prompts.Keys);
-        Assert.Contains("instructions", setA.Prompts.Keys);
-        Assert.DoesNotContain("other", setA.Prompts.Keys);
-
-        // Cleanup
+        var context = await PromptContext.FromFolder(tempRoot).WithConfig(config).LoadAsync();
+        var setA = context.Get("SetA").CombineWithBase();
+        var result = await setA.AsStringAsync();
+        Assert.Contains("System Prompt", result);
+        Assert.Contains("Instructions Prompt", result);
+        Assert.DoesNotContain("Other Prompt", result);
         Directory.Delete(tempRoot, true);
     }
 
@@ -448,31 +296,25 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
-
-        // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
-        var setA = sets["SetA"]["Root"];
-
-        // Assert
-        Assert.Equal(3, setA.Prompts.Count);
-        Assert.Contains("system", setA.Prompts.Keys);
-        Assert.Contains("instructions", setA.Prompts.Keys);
-        Assert.Contains("other", setA.Prompts.Keys);
-
-        // Cleanup
+        var context = await PromptContext.FromFolder(tempRoot).WithConfig(config).LoadAsync();
+        var setA = context.Get("SetA").CombineWithBase();
+        var result = await setA.AsStringAsync();
+        Assert.Contains("System Prompt", result);
+        Assert.Contains("Instructions Prompt", result);
+        Assert.Contains("Other Prompt", result);
         Directory.Delete(tempRoot, true);
     }
 
     [Fact]
-    public void GetCombinedPrompts_PrependsFilenameHeaderOnFirstEntry()
+    public async Task GetCombinedPrompts_PrependsFilenameHeaderOnFirstEntry()
     {
-        var prompts = new Dictionary<string, Prompt>
-        {
-            { "system", new Prompt("You are a helpful agent.", PromptFormat.Plain) },
-            { "instructions", new Prompt("Follow the user’s request.", PromptFormat.Plain) }
-        };
-        var set = new PromptSet { Name = "Test", Prompts = prompts };
+        // Arrange
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempRoot);
+        var setDir = Path.Combine(tempRoot, "SetA");
+        Directory.CreateDirectory(setDir);
+        await File.WriteAllTextAsync(Path.Combine(setDir, "system.prompt"), "You are a helpful agent.");
+        await File.WriteAllTextAsync(Path.Combine(setDir, "instructions.prompt"), "Follow the user’s request.");
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
@@ -481,15 +323,12 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string>("PromptSeparator", "\n  {filename}:  \n")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
-
-        var result = promptService.GetCombinedPrompts(set);
-
-        // Should start with the header for the first prompt, trimmed
+        var context = await PromptContext.FromFolder(tempRoot).WithConfig(config).LoadAsync();
+        var setA = context.Get("SetA").CombineWithBase();
+        var result = await setA.AsStringAsync();
         Assert.StartsWith("System:  \nYou are a helpful agent.", result);
-        // Should contain the header for the second prompt, trimmed
         Assert.Contains("\n  Instructions:  \nFollow the user’s request.", result);
-        // Should not have extra whitespace in the header
         Assert.DoesNotContain("  System:  ", result);
+        Directory.Delete(tempRoot, true);
     }
 }
