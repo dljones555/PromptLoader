@@ -5,6 +5,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
 using PromptLoader.Services;
 using PromptLoader.Utils;
+using PromptLoader.Fluent;
 
 // Build configuration to read from appsettings.json  
 var config = new ConfigurationBuilder()
@@ -38,25 +39,29 @@ builder.AddOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-var prompts = await promptService.LoadPromptsAsync();
-var promptSets = await promptService.LoadPromptSetsAsync();
+// --- FLUENT API USAGE ---
+// Load a prompt set and combine prompts using the fluent API
+var salesPromptContext = await PromptContext
+    .FromFolder()
+    .WithConfig(config)
+    .LoadAsync();
 
-var refundPromptSet = promptSets["CustomerService"]["Refund"];
-var salesPromptContext = promptService.GetCombinedPrompts(promptSets["Sales"].Root(), promptSets["Root"]["Root"]);
-// This is the GitHub Models format.  
-PromptYml textSummarizePrompt = prompts["sample.prompt"].ToPromptYml();
+string salesCombined = salesPromptContext
+    .Get("Sales/Root")
+    .SeparateWith(config["PromptSeparator"])
+    .AsString();
 
-// Example: Load a single prompt file
-var singlePromptPath = Path.Combine(
-    PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts"),
-    "sample.prompt.yml"
-);
-var singlePrompt = await promptService.LoadPromptAsync(singlePromptPath);
+// Load a single prompt file using the fluent API
+var systemPromptContext = await PromptContext
+    .FromFile(Path.Combine(PathUtils.ResolvePromptPath(config["PromptsFolder"] ?? "Prompts"), "system.txt"))
+    .WithConfig(config)
+    .LoadAsync();
+string systemPrompt = systemPromptContext.Get("system").AsString();
 
 // Prepare chat history with a system prompt and user/assistant pairs  
 var chatHistory = new ChatHistory();
-chatHistory.AddSystemMessage(prompts["system"].Text);
-chatHistory.AddSystemMessage(salesPromptContext);
+chatHistory.AddSystemMessage(systemPrompt);
+chatHistory.AddSystemMessage(salesCombined);
 chatHistory.AddUserMessage("I want to send a small payload into space and piggyback with other payloads. Which rocket companies can do this?");
 
 // Get the chat completion service and send the chat history  
