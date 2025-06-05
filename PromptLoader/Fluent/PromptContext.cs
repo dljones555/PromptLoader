@@ -112,9 +112,8 @@ namespace PromptLoader.Fluent
                 }
                 else
                 {
-                    // Set the state anyway, AsString will handle missing
-                    //_currentSet = key;
-                    _currentPrompt = key;
+                    _currentSet = key ?? "Root";
+                    _currentPrompt = key == "Root" ? string.Empty : key;
                 }
             }
             else if (parts.Length == 2)
@@ -185,6 +184,10 @@ namespace PromptLoader.Fluent
             {
                 return prompt.Text;
             }
+            else
+            {
+                return string.Empty;
+            }
 
             // 2) If flag is false and there is a _currentSet or _currentSubSet, this assumes _currentPrompt is null
             if (!_combineWithRoot)
@@ -198,7 +201,7 @@ namespace PromptLoader.Fluent
 
                 if (!string.IsNullOrEmpty(_currentPrompt) && promptSet.Prompts.TryGetValue(_currentPrompt, out var singlePrompt))
                 {
-                    return singlePrompt.Text;   
+                    return singlePrompt.Text;
                 }
             }
             else
@@ -209,7 +212,7 @@ namespace PromptLoader.Fluent
                 }
 
                 var set = _promptSets[_currentSet][_currentSubSet ?? "Root"];
-                PromptSet? rootSet = _promptSets["Root"]["Root"]; 
+                PromptSet? rootSet = _promptSets["Root"]["Root"];
 
                 return _promptService.GetCombinedPrompts(set, rootSet, _separator);
             }

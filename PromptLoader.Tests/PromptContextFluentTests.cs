@@ -74,7 +74,7 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
             .WithConfig(_config)
             .LoadAsync();
 
-        var combined = ctx.Get("Root").SeparateWith("\n").AsString();
+        var combined = ctx.Get("Root").SeparateWith("\n").CombineWithRoot().AsString();
         Assert.Contains("System", combined);
         Assert.Contains("Instructions", combined);
     }
@@ -114,10 +114,10 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
             .WithConfig(config)
             .LoadAsync();
 
-        var combined = ctx.Get("Root").SeparateWith("\n").AsString();
-        Assert.Contains("System Prompt", combined);
-        Assert.Contains("Instructions Prompt", combined);
-        Assert.DoesNotContain("Other Prompt", combined);
+        var combined = ctx.Get("Root").SeparateWith("\n").CombineWithRoot().AsString();
+        Assert.Contains(combined, "System Prompt");
+        Assert.Contains(combined, "Instructions Prompt");
+        Assert.DoesNotContain(combined, "Other Prompt");
     }
 
     public async Task InitializeAsync() => await Task.CompletedTask;
