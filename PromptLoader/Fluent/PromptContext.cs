@@ -113,7 +113,7 @@ namespace PromptLoader.Fluent
                 else
                 {
                     // Set the state anyway, AsString will handle missing
-                    _currentSet = key;
+                    //_currentSet = key;
                     _currentPrompt = key;
                 }
             }
@@ -194,7 +194,12 @@ namespace PromptLoader.Fluent
                     throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
                 }
 
-                return _promptService.GetCombinedPrompts(_promptSets[_currentSet], _currentSubSet ?? _currentSet, _separator);  
+                var promptSet = _promptSets[_currentSet][_currentSubSet ?? "Root"];
+
+                if (!string.IsNullOrEmpty(_currentPrompt) && promptSet.Prompts.TryGetValue(_currentPrompt, out var singlePrompt))
+                {
+                    return singlePrompt.Text;   
+                }
             }
             else
             {
