@@ -7,7 +7,7 @@ namespace PromptLoader.Fluent
         static abstract PromptContext FromFile(string file = "", bool cascadeOverride = true);
         static abstract PromptContext FromFolder(string folder = "", bool cascadeOverride = true);
         string AsString();
-        PromptContext CombineWithBase();
+        PromptContext CombineWithRoot();
         PromptContext SeparateWith(string separator = "");
         PromptContext Get(string path);
         Task<PromptContext> LoadAsync();

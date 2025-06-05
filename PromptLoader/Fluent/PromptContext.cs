@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ namespace PromptLoader.Fluent
         private bool _cascadeOverride = true;
         private string? _folder;
         private string? _file;
+        private bool _combineWithRoot = false;
 
         // Static factory methods
         public static PromptContext FromFile(string file = "", bool cascadeOverride = true)
@@ -161,9 +163,9 @@ namespace PromptLoader.Fluent
             return this;
         }
 
-        public PromptContext CombineWithBase()
+        public PromptContext CombineWithRoot()
         {
-            // No-op for now, as base/root is handled in GetCombinedPrompts
+            _combineWithRoot = true;
             return this;
         }
 
@@ -178,64 +180,35 @@ namespace PromptLoader.Fluent
             if (_promptService == null)
                 throw new InvalidOperationException("PromptService is not configured. Call WithConfig first.");
 
-            if (_prompts.Count > 0 && _currentPrompt != null && _prompts.TryGetValue(_currentPrompt, out var prompt))
+            // 1) If there is a _currentPrompt and that's in _prompts, return prompt.Text
+            if (!string.IsNullOrEmpty(_currentPrompt) && _prompts.TryGetValue(_currentPrompt, out var prompt))
             {
                 return prompt.Text;
             }
 
-            if (_promptSets.Count > 0 && _currentSet != null)
+            // 2) If flag is false and there is a _currentSet or _currentSubSet, this assumes _currentPrompt is null
+            if (!_combineWithRoot)
             {
-                var setDict = _promptSets;
-                if (setDict.TryGetValue(_currentSet, out var subSets))
+                if (string.IsNullOrWhiteSpace(_currentSet))
                 {
-                    // If _currentPrompt is set and _currentSubSet is null, check Root subset for the prompt
-                    if (_currentSubSet == null && _currentPrompt != null)
-                    {
-                        if (subSets.TryGetValue("Root", out var rootSubset) && rootSubset.Prompts.TryGetValue(_currentPrompt, out var rootPrompt))
-                        {
-                            return rootPrompt.Text;
-                        }
-                    }
-                    // If both set and subset are specified
-                    if (!string.IsNullOrEmpty(_currentSubSet))
-                    {
-                        // If the subset exists
-                        if (subSets.TryGetValue(_currentSubSet, out var promptSet))
-                        {
-                            // If a specific prompt is requested and exists in the subset, return it
-                            if (!string.IsNullOrEmpty(_currentPrompt) && promptSet.Prompts != null && promptSet.Prompts.TryGetValue(_currentPrompt, out var subPrompt))
-                            {
-                                return subPrompt.Text;
-                            }
-                            // If the subset name matches a prompt in the subset, return it
-                            if (promptSet.Prompts != null && promptSet.Prompts.TryGetValue(_currentSubSet, out var subSetPrompt))
-                            {
-                                return subSetPrompt.Text;
-                            }
-                            // Otherwise, combine all prompts in the subset
-                            PromptSet? rootSet = null;
-                            if (setDict.TryGetValue("Root", out var rootDict) && rootDict.TryGetValue("Root", out var root))
-                                rootSet = root;
-                            return _promptService.GetCombinedPrompts(promptSet, rootSet, _separator);
-                        }
-                        // If the subset does not exist, but Root subset exists and has a prompt with the name of _currentSubSet
-                        else if (subSets.TryGetValue("Root", out var rootPromptSet) && rootPromptSet.Prompts != null && rootPromptSet.Prompts.TryGetValue(_currentSubSet, out var rootPrompt2))
-                        {
-                            return rootPrompt2.Text;
-                        }
-                        // If _currentSubSet is set but not found as a prompt or subset, return empty string
-                        else
-                        {
-                            return string.Empty;
-                        }
-                    }
-                    // Fallback: combine all prompts in Root subset only if _currentSubSet is null or empty
-                    if (string.IsNullOrEmpty(_currentSubSet) && subSets.TryGetValue("Root", out var fallbackRootPromptSet))
-                    {
-                        return _promptService.GetCombinedPrompts(fallbackRootPromptSet, null, _separator);
-                    }
+                    throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
                 }
+
+                return _promptService.GetCombinedPrompts(_promptSets[_currentSet], _currentSubSet ?? _currentSet, _separator);  
             }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(_currentSet))
+                {
+                    throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
+                }
+
+                var set = _promptSets[_currentSet][_currentSubSet ?? "Root"];
+                PromptSet? rootSet = _promptSets["Root"]["Root"]; 
+
+                return _promptService.GetCombinedPrompts(set, rootSet, _separator);
+            }
+
             return string.Empty;
         }
     }
