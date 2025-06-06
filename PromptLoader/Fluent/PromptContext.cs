@@ -110,11 +110,11 @@ namespace PromptLoader.Fluent
                 {
                     _currentPrompt = key;
                 }
-                else
+                /*else
                 {
                     _currentSet = "Root";
                     _currentPrompt = key;
-                }
+                }*/
             }
             else if (parts.Length == 2)
             {
@@ -211,10 +211,17 @@ namespace PromptLoader.Fluent
                         throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
                     }*/
 
-                    var set = _promptSets[_currentSet][_currentSubSet ?? "Root"];
-                    PromptSet? rootSet = _promptSets["Root"]["Root"];
-
-                    return _promptService.GetCombinedPrompts(set, rootSet, _separator);
+                    var setKey = string.IsNullOrEmpty(_currentSet) ? "Root" : _currentSet;
+                    if (!_promptSets.TryGetValue(setKey, out var subSets))
+                        return string.Empty;
+                    var subSetKey = string.IsNullOrEmpty(_currentSubSet) ? "Root" : _currentSubSet;
+                    if (!subSets.TryGetValue(subSetKey, out var promptSet))
+                        return string.Empty;
+                    // Combine with root if present
+                    PromptSet? rootSet = null;
+                    if (_promptSets.TryGetValue("Root", out var rootDict) && rootDict.TryGetValue("Root", out var root))
+                        rootSet = root;
+                    return _promptService.GetCombinedPrompts(promptSet, rootSet, _separator);
                 }
             }
 
