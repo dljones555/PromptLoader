@@ -47,8 +47,8 @@ var salesPromptContext = await PromptContext
     .LoadAsync();
 
 string salesCombined = salesPromptContext
-    .Get("Sales/Root")
-    .SeparateWith(config["PromptSeparator"])
+    .Get("Sales")
+    .CombineWithRoot()
     .AsString();
 
 // Load a single prompt file using the fluent API
