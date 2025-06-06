@@ -112,8 +112,8 @@ namespace PromptLoader.Fluent
                 }
                 else
                 {
-                    _currentSet = key ?? "Root";
-                    _currentPrompt = key == "Root" ? string.Empty : key;
+                    _currentSet = "Root";
+                    _currentPrompt = key;
                 }
             }
             else if (parts.Length == 2)
@@ -184,37 +184,38 @@ namespace PromptLoader.Fluent
             {
                 return prompt.Text;
             }
-            else
+
+            if (!string.IsNullOrWhiteSpace(_currentSet))
             {
-                return string.Empty;
-            }
 
-            // 2) If flag is false and there is a _currentSet or _currentSubSet, this assumes _currentPrompt is null
-            if (!_combineWithRoot)
-            {
-                if (string.IsNullOrWhiteSpace(_currentSet))
+                // 2) If flag is false and there is a _currentSet or _currentSubSet, this assumes _currentPrompt is null
+                if (!_combineWithRoot)
                 {
-                    throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
+                    /*if (string.IsNullOrWhiteSpace(_currentSet))
+                    {
+                        throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
+                    }*/
+
+                    var promptSet = _promptSets[_currentSet][_currentSubSet ?? "Root"];
+
+                    if (!string.IsNullOrEmpty(_currentPrompt) && promptSet.Prompts.TryGetValue(_currentPrompt, out var singlePrompt))
+                    {
+                        return singlePrompt.Text;
+                    }
+
                 }
-
-                var promptSet = _promptSets[_currentSet][_currentSubSet ?? "Root"];
-
-                if (!string.IsNullOrEmpty(_currentPrompt) && promptSet.Prompts.TryGetValue(_currentPrompt, out var singlePrompt))
+                else
                 {
-                    return singlePrompt.Text;
-                }
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(_currentSet))
-                {
-                    throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
-                }
+                    /*if (string.IsNullOrWhiteSpace(_currentSet))
+                    {
+                        throw new InvalidOperationException("No valid prompt or set found. Ensure you have called Get() with a valid path.");
+                    }*/
 
-                var set = _promptSets[_currentSet][_currentSubSet ?? "Root"];
-                PromptSet? rootSet = _promptSets["Root"]["Root"];
+                    var set = _promptSets[_currentSet][_currentSubSet ?? "Root"];
+                    PromptSet? rootSet = _promptSets["Root"]["Root"];
 
-                return _promptService.GetCombinedPrompts(set, rootSet, _separator);
+                    return _promptService.GetCombinedPrompts(set, rootSet, _separator);
+                }
             }
 
             return string.Empty;
