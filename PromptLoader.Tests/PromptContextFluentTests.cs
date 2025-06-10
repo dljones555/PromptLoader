@@ -1,12 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Fluent;
-using PromptLoader.Models;
-using PromptLoader.Utils;
-using Xunit;
 
 namespace PromptLoader.Tests;
 
@@ -19,16 +12,16 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
     {
         _testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDir);
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string>("PromptsFolder", _testDir),
-            new KeyValuePair<string, string>("PromptSetFolder", _testDir),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".txt"),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:1", ".prompt"),
-            new KeyValuePair<string, string>("PromptSeparator", "\n---\n")
-        });
-        _config = configBuilder.Build();
+
+        _config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appSettings.json", optional: true, reloadOnChange: false)
+                .AddInMemoryCollection(new[]
+                 {           
+                    new KeyValuePair<string, string>("PromptLoader:PromptsFolder", _testDir),
+                    new KeyValuePair<string, string>("PromptLoader:PromptSetFolder", _testDir)
+                 })
+                .Build();
     }
 
     [Fact]
@@ -94,24 +87,13 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task LoadPrompts_ConstrainPromptList_Fluent_Works()
     {
-        var configBuilder = new ConfigurationBuilder();
-        configBuilder.AddInMemoryCollection(new[]
-        {
-            new KeyValuePair<string, string>("PromptsFolder", _testDir),
-            new KeyValuePair<string, string>("PromptSetFolder", _testDir),
-            new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PromptList:0", "system"),
-            new KeyValuePair<string, string>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string>("ConstrainPromptList", "true")
-        });
-        var config = configBuilder.Build();
         await File.WriteAllTextAsync(Path.Combine(_testDir, "system.prompt"), "System Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
 
         var ctx = await PromptContext
             .FromFolder(_testDir)
-            .WithConfig(config)
+            .WithConfig(_config)
             .LoadAsync();
 
         var combined = ctx.Get("Root").SeparateWith("\n").CombineWithRoot().AsString();

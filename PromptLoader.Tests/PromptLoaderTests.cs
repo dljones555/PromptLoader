@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
-using PromptLoader.Services;
+using PromptLoader.Fluent;
 using PromptLoader.Models;
 using Microsoft.Extensions.Configuration;
 
@@ -11,7 +12,7 @@ namespace PromptLoader.Tests;
 public class PromptLoaderTests : IAsyncLifetime, IDisposable
 {
     private readonly string _testDir;
-    private readonly IPromptService _promptService;
+    private readonly IPromptContext _promptContext;
     private readonly IConfiguration _config;
 
     public PromptLoaderTests()
@@ -26,7 +27,7 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
             new KeyValuePair<string, string>("SupportedPromptExtensions:1", ".prompt")
         });
         _config = configBuilder.Build();
-        _promptService = new PromptService(_config);
+        _promptContext = new PromptContext().WithConfig(_config);
     }
 
     [Fact]
@@ -38,7 +39,7 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
         await File.WriteAllTextAsync(Path.Combine(_testDir, "c.unsupported"), "Should be ignored");
 
         // Act
-        var prompts = await _promptService.LoadPromptsAsync();
+        var prompts = await _promptContext.LoadPromptsAsync();
 
         // Assert
         Assert.NotNull(prompts);
@@ -57,7 +58,7 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
         await File.WriteAllTextAsync(Path.Combine(subDir, "d.prompt"), "Sub");
 
         // Act
-        var prompts = await _promptService.LoadPromptsAsync(cascadeOverride: true);
+        var prompts = await _promptContext.LoadPromptsAsync(cascadeOverride: true);
 
         // Assert
         Assert.Equal("Sub", prompts["d"].Text);
@@ -73,7 +74,7 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
         await File.WriteAllTextAsync(Path.Combine(subDir, "e.prompt"), "Sub");
 
         // Act
-        var prompts = await _promptService.LoadPromptsAsync(cascadeOverride: false);
+        var prompts = await _promptContext.LoadPromptsAsync(cascadeOverride: false);
 
         // Assert
         Assert.Equal("Root", prompts["e"].Text);
@@ -92,10 +93,10 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var prompts = await promptService.LoadPromptsAsync(promptsFolder: customDir);
+        var prompts = await promptContext.LoadPromptsAsync(promptsFolder: customDir);
 
         // Assert
         Assert.Single(prompts);
@@ -117,12 +118,12 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
             new KeyValuePair<string, string>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act & Assert
-        var ex = await Record.ExceptionAsync(() => promptService.LoadPromptsAsync(promptsFolder: nonExistentDir));
+        var ex = await Record.ExceptionAsync(() => promptContext.LoadPromptsAsync(promptsFolder: nonExistentDir));
         Assert.Null(ex); // Should not throw
-        var prompts = await promptService.LoadPromptsAsync(promptsFolder: nonExistentDir);
+        var prompts = await promptContext.LoadPromptsAsync(promptsFolder: nonExistentDir);
         Assert.Empty(prompts);
     }
 
@@ -134,7 +135,7 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
         await File.WriteAllTextAsync(filePath, "Single Prompt Content");
 
         // Act
-        var prompt = await _promptService.LoadPromptAsync(filePath);
+        var prompt = await _promptContext.LoadPromptAsync(filePath);
 
         // Assert
         Assert.NotNull(prompt);
@@ -151,8 +152,8 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
         await File.WriteAllTextAsync(unsupportedFile, "Should be ignored");
 
         // Act
-        var prompt1 = await _promptService.LoadPromptAsync(unsupportedFile);
-        var prompt2 = await _promptService.LoadPromptAsync(missingFile);
+        var prompt1 = await _promptContext.LoadPromptAsync(unsupportedFile);
+        var prompt2 = await _promptContext.LoadPromptAsync(missingFile);
 
         // Assert
         Assert.Null(prompt1);
@@ -173,13 +174,13 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
             new KeyValuePair<string, string>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
         await File.WriteAllTextAsync(Path.Combine(_testDir, "system.prompt"), "System Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
 
         // Act
-        var prompts = await promptService.LoadPromptsAsync();
+        var prompts = await promptContext.LoadPromptsAsync();
 
         // Assert
         Assert.Equal(2, prompts.Count);
@@ -202,13 +203,13 @@ public class PromptLoaderTests : IAsyncLifetime, IDisposable
             new KeyValuePair<string, string>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
         await File.WriteAllTextAsync(Path.Combine(_testDir, "system.prompt"), "System Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "instructions.prompt"), "Instructions Prompt");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "other.prompt"), "Other Prompt");
 
         // Act
-        var prompts = await promptService.LoadPromptsAsync();
+        var prompts = await promptContext.LoadPromptsAsync();
 
         // Assert
         Assert.Equal(3, prompts.Count);

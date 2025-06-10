@@ -1,17 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using PromptLoader.Models;
-using PromptLoader.Utils;
+using System.Runtime.CompilerServices;
 
 namespace PromptLoader.Fluent
 {
     public class PromptContext : IPromptContext
     {
-        private IConfiguration _config;
+        private readonly PromptLoaderOptions _options;
+        // Change the `_config` field to not be readonly since it is being reassigned in the `WithConfig` method.
+        private IConfiguration? _config;
+        public PromptListType PromptListType { get; private set; }
+
         private Dictionary<string, Dictionary<string, PromptSet>> _promptSets = new();
         private Dictionary<string, Prompt> _prompts = new();
         private string? _currentSet;
@@ -23,7 +23,61 @@ namespace PromptLoader.Fluent
         private string? _file;
         private bool _combineWithRoot = false;
 
-        // Static factory methods
+        // Constructor 1: With IOptions
+        public PromptContext(IOptions<PromptLoaderOptions> options)
+        {
+            _options = options.Value;
+            _config = null;
+            LoadOptions();
+        }
+
+        // Constructor 2: With IConfiguration
+        public PromptContext(IConfiguration config)
+        {
+            _config = config;
+            _options = config.GetSection("PromptLoader").Get<PromptLoaderOptions>() ?? new PromptLoaderOptions();
+            LoadOptions();
+        }
+
+        // Constructor 3: With PromptLoaderOptions
+        public PromptContext(PromptLoaderOptions options)
+        {
+            _options = options;
+            _config = null;
+            LoadOptions();
+        }
+
+        // Constructor 4: No DI, No config, No options, defaults
+        public PromptContext()
+        {
+            // TODO: Defaults should be here
+            _options = new PromptLoaderOptions();
+            _config = null;
+
+            // Seems extraneous from when Gemini ripped out PromptListType
+            LoadOptions();
+        }
+
+        private void LoadOptions()
+        {
+            // PromptListType
+            PromptListType parsedType;
+            if (_config != null && !Enum.TryParse(_config["PromptListType"], true, out parsedType))
+            {
+                parsedType = PromptListType.Named;
+            }
+            else if (_options != null && !string.IsNullOrEmpty(_options.PromptListType) && Enum.TryParse(_options.PromptListType, true, out parsedType))
+            {
+                // use parsedType
+            }
+            else
+            {
+                parsedType = PromptListType.Named;
+            }
+            PromptListType = parsedType;
+        }
+
+        // Static factory methods for fluent API
         public static PromptContext FromFile(string file = "", bool cascadeOverride = true)
         {
             var ctx = new PromptContext();
@@ -42,7 +96,19 @@ namespace PromptLoader.Fluent
 
         public PromptContext WithConfig(IConfiguration config)
         {
+            // This allows fluent API to override config after construction
             _config = config;
+            var options = config.GetSection("PromptLoader").Get<PromptLoaderOptions>() ?? new PromptLoaderOptions();
+            // Copy over options
+            _options.PromptsFolder = options.PromptsFolder;
+            _options.PromptSetFolder = options.PromptSetFolder;
+            _options.PromptListType = options.PromptListType;
+            _options.PromptList = options.PromptList;
+            _options.ConstrainPromptList = options.ConstrainPromptList;
+            _options.SupportedPromptExtensions = options.SupportedPromptExtensions;
+            _options.PromptSeparator = options.PromptSeparator;
+            _options.CascadeOverride = options.CascadeOverride;
+            LoadOptions();
             return this;
         }
 
@@ -57,8 +123,8 @@ namespace PromptLoader.Fluent
 
         public async Task<PromptContext> LoadAsync()
         {
-            if (_config == null)
-                throw new InvalidOperationException("Configuration is not set. Call WithConfig first.");
+            if (_config == null && _options == null)
+                throw new InvalidOperationException("Configuration or options are not set. Call WithConfig or use a constructor with options/config.");
 
             if (!string.IsNullOrEmpty(_file))
             {
@@ -74,7 +140,7 @@ namespace PromptLoader.Fluent
             }
             else
             {
-                // Default: load from config
+                // Default: load from config/options
                 _promptSets = await LoadPromptSetsAsync(_cascadeOverride);
             }
             return this;
@@ -156,8 +222,8 @@ namespace PromptLoader.Fluent
 
         public string AsString()
         {
-            if (_config == null)
-                throw new InvalidOperationException("Configuration is not set. Call WithConfig first.");
+            if (_config == null && _options == null)
+                throw new InvalidOperationException("Configuration or options are not set. Call WithConfig or use a constructor with options/config.");
 
             if (!string.IsNullOrEmpty(_currentPrompt) && _prompts.TryGetValue(_currentPrompt, out var prompt))
             {
@@ -195,23 +261,13 @@ namespace PromptLoader.Fluent
         // IPromptContext methods (moved from PromptService)
         public Dictionary<string, Prompt> Prompts => _prompts;
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets => _promptSets;
-        public PromptListType PromptListType
-        {
-            get
-            {
-                if (_config == null) return PromptListType.Named;
-                if (!Enum.TryParse(_config["PromptListType"], true, out PromptListType parsedType))
-                    parsedType = PromptListType.Named;
-                return parsedType;
-            }
-        }
 
         public async Task<Dictionary<string, Prompt>> LoadPromptsAsync(bool cascadeOverride = true, string? promptsFolder = null)
         {
-            if (_config == null)
-                throw new InvalidOperationException("Configuration is not set. Call WithConfig first.");
-
-            var folder = promptsFolder ?? PathUtils.ResolvePromptPath(_config["PromptsFolder"] ?? "Prompts");
+            var folder = promptsFolder
+                ?? _options?.PromptsFolder
+                ?? _config?["PromptsFolder"]
+                ?? "Prompts";
             var supportedExtensions = GetSupportedExtensions();
             _prompts = await LoadPromptsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _prompts;
@@ -219,10 +275,10 @@ namespace PromptLoader.Fluent
 
         public async Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsAsync(bool cascadeOverride = true, string? promptSetFolder = null)
         {
-            if (_config == null)
-                throw new InvalidOperationException("Configuration is not set. Call WithConfig first.");
-
-            var folder = promptSetFolder ?? PathUtils.ResolvePromptPath(_config["PromptSetFolder"] ?? "PromptSets");
+            var folder = promptSetFolder
+                ?? _options?.PromptSetFolder
+                ?? _config?["PromptSetFolder"]
+                ?? "PromptSets";
             var supportedExtensions = GetSupportedExtensions();
             _promptSets = await LoadPromptSetsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _promptSets;
@@ -241,9 +297,14 @@ namespace PromptLoader.Fluent
 
         public string GetCombinedPrompts(PromptSet promptSet, PromptSet? rootSet = null, string? separator = null)
         {
-            var sepTemplate = separator ?? _config?["PromptSeparator"] ?? Environment.NewLine;
+            var sepTemplate = separator
+                ?? _options?.PromptSeparator
+                ?? _config?["PromptSeparator"]
+                ?? Environment.NewLine;
             var builder = new System.Text.StringBuilder();
-            var promptList = _config?.GetSection("PromptList").Get<string[]>() ?? promptSet.Prompts.Keys.ToArray();
+            var promptList = _options?.PromptList
+                ?? _config?.GetSection("PromptList").Get<string[]>()
+                ?? promptSet.Prompts.Keys.ToArray();
             var allKeys = new List<string>();
 
             foreach (var key in promptList)
@@ -312,6 +373,8 @@ namespace PromptLoader.Fluent
         // Helpers
         private string[] GetSupportedExtensions()
         {
+            if (_options?.SupportedPromptExtensions != null && _options.SupportedPromptExtensions.Length > 0)
+                return _options.SupportedPromptExtensions;
             var exts = _config?.GetSection("SupportedPromptExtensions").Get<string[]>();
             if (exts != null && exts.Length > 0)
                 return exts;
@@ -347,11 +410,14 @@ namespace PromptLoader.Fluent
 
             var prompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
 
-            bool constrain = _config?.GetValue("ConstrainPromptList", false) ?? false;
+            bool constrain = _options?.ConstrainPromptList
+                ?? _config?.GetValue("ConstrainPromptList", false)
+                ?? false;
             var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (constrain)
             {
-                var promptList = _config?.GetSection("PromptList").Get<string[]>();
+                var promptList = _options?.PromptList
+                    ?? _config?.GetSection("PromptList").Get<string[]>();
                 if (promptList != null)
                     allowedNames.UnionWith(promptList);
             }
@@ -384,11 +450,14 @@ namespace PromptLoader.Fluent
 
             var result = new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
 
-            bool constrain = _config?.GetValue("ConstrainPromptList", false) ?? false;
+            bool constrain = _options?.ConstrainPromptList
+                ?? _config?.GetValue("ConstrainPromptList", false)
+                ?? false;
             var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (constrain)
             {
-                var promptList = _config?.GetSection("PromptList").Get<string[]>();
+                var promptList = _options?.PromptList
+                    ?? _config?.GetSection("PromptList").Get<string[]>();
                 if (promptList != null)
                     allowedNames.UnionWith(promptList);
             }

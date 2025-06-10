@@ -15,6 +15,7 @@ namespace PromptLoader.Models
         public bool ConstrainPromptList { get; set; }
         public string[] SupportedPromptExtensions { get; set; }
         public string PromptSeparator { get; set; }
+        public bool CascadeOverride { get; set; } = true;
         // Add more as needed
     }
 }

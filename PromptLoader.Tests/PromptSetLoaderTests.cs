@@ -18,7 +18,6 @@ public class PromptSetLoaderTests
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appSettings.json", optional: true, reloadOnChange: false)
             .Build();
-        _promptService = new PromptService(_config);
         _promptContext = new PromptContext().WithConfig(_config);
     }
 
@@ -407,11 +406,11 @@ public class PromptSetLoaderTests
         var configBuilder = new ConfigurationBuilder();
         configBuilder.AddInMemoryCollection(new[]
         {
-            new KeyValuePair<string, string?>("PromptSetFolder", tempRoot),
-            new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string?>("PromptList:0", "system"),
-            new KeyValuePair<string, string?>("PromptList:1", "instructions"),
-            new KeyValuePair<string, string?>("ConstrainPromptList", "true")
+            new KeyValuePair<string, string?>("PromptLoader:PromptSetFolder", tempRoot),
+            new KeyValuePair<string, string?>("PromptLoader:SupportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string?>("PromptLoader:PromptList:0", "system"),
+            new KeyValuePair<string, string?>("PromptLoader:PromptList:1", "instructions"),
+            new KeyValuePair<string, string?>("PromptLoader:ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
         var promptContext = new PromptContext().WithConfig(config);
