@@ -1,26 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 using PromptLoader.Utils;
 
 namespace PromptLoader.Services
 {
-    public enum PromptListType
-    {
-        Named,
-        Numeric,
-        None
-    }
-
     public interface IPromptService
     {
         Dictionary<string, Prompt> Prompts { get; }
         Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; }
-        PromptListType PromptListType { get; }              
         Task<Dictionary<string, Prompt>> LoadPromptsAsync(bool cascadeOverride = true, string? promptsFolder = null);
         Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsAsync(bool cascadeOverride = true, string? promptSetFolder = null);
         string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null);
@@ -38,14 +25,10 @@ namespace PromptLoader.Services
         private bool _extensionsLoaded = false;
         public Dictionary<string, Prompt> Prompts { get; private set; } = new();
         public Dictionary<string, Dictionary<string, PromptSet>> PromptSets { get; private set; } = new();
-        public PromptListType PromptListType { get; private set; } = PromptListType.Named;
 
         public PromptService(IConfiguration config)
         {
             _config = config;
-            if (!Enum.TryParse(config["PromptListType"], true, out PromptListType parsedType))
-                parsedType = PromptListType.Named;
-            PromptListType = parsedType;
         }
 
         /// <summary>

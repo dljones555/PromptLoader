@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 using PromptLoader.Services;
+using PromptLoader.Fluent;
 using Xunit;
 
 namespace PromptLoader.Tests;
@@ -9,6 +10,7 @@ public class PromptSetLoaderTests
 {
     private readonly IConfiguration _config;
     private readonly IPromptService _promptService;
+    private readonly IPromptContext _promptContext;
 
     public PromptSetLoaderTests()
     {
@@ -17,6 +19,7 @@ public class PromptSetLoaderTests
             .AddJsonFile("appSettings.json", optional: true, reloadOnChange: false)
             .Build();
         _promptService = new PromptService(_config);
+        _promptContext = new PromptContext().WithConfig(_config);
     }
 
     [Fact]
@@ -38,10 +41,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
+        var promptContext = new PromptContext().WithConfig(testConfig);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Single(sets); // Only SetA
@@ -86,10 +89,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
+        var promptContext = new PromptContext().WithConfig(testConfig);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Contains("CustomerService", sets.Keys);
@@ -137,10 +140,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".md")
         });
         var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
+        var promptContext = new PromptContext().WithConfig(testConfig);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
 
         // Assert
         Assert.Contains("Sales", sets.Keys);
@@ -170,10 +173,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, customDir);
+        var sets = await promptContext.LoadPromptSetsAsync(false, customDir);
 
         // Assert
         Assert.Single(sets); // Only CustomSet
@@ -199,12 +202,12 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("SupportedPromptExtensions:0", ".prompt")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act & Assert
-        var ex = await Record.ExceptionAsync(() => promptService.LoadPromptSetsAsync(false, nonExistentDir));
+        var ex = await Record.ExceptionAsync(() => promptContext.LoadPromptSetsAsync(false, nonExistentDir));
         Assert.Null(ex); // Should not throw
-        var sets = await promptService.LoadPromptSetsAsync(false, nonExistentDir);
+        var sets = await promptContext.LoadPromptSetsAsync(false, nonExistentDir);
         Assert.Empty(sets);
     }
 
@@ -214,11 +217,11 @@ public class PromptSetLoaderTests
         // Arrange
         var sets = new Dictionary<string, PromptSet>();
         var config = new ConfigurationBuilder().Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act & Assert
         Assert.Throws<KeyNotFoundException>(() =>
-            promptService.GetCombinedPrompts(sets, "missing"));
+            promptContext.GetCombinedPrompts(sets, "missing"));
     }
 
     [Fact]
@@ -241,10 +244,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var result = promptService.GetCombinedPrompts(sets, "set1");
+        var result = promptContext.GetCombinedPrompts(sets, "set1");
 
         // Assert
         Assert.Equal("system" + Environment.NewLine + "instructions", result);
@@ -263,10 +266,10 @@ public class PromptSetLoaderTests
         var sets = new Dictionary<string, PromptSet> { { "set1", set } };
 
         var config = new ConfigurationBuilder().Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var result = promptService.GetCombinedPrompts(sets, "set1");
+        var result = promptContext.GetCombinedPrompts(sets, "set1");
 
         // Assert
         var expected1 = "First" + Environment.NewLine + "Second";
@@ -295,10 +298,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:2", "examples")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var result = promptService.GetCombinedPrompts(promptSet);
+        var result = promptContext.GetCombinedPrompts(promptSet);
 
         // Assert
         Assert.Equal("System text\nInstructions text\nExamples text".Replace("\n", Environment.NewLine), result);
@@ -325,13 +328,13 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:1", "instructions")
         });
         var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
+        var promptContext = new PromptContext().WithConfig(testConfig);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
-        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
+        var combined = promptContext.GetCombinedPrompts(salesSet, rootSet);
 
         // Assert
         Assert.Contains("Root System", combined);
@@ -368,13 +371,13 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("PromptList:2", "instructions")
         });
         var testConfig = configBuilder.Build();
-        var promptService = new PromptService(testConfig);
+        var promptContext = new PromptContext().WithConfig(testConfig);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
         var salesSet = sets["Sales"]["Root"];
         var rootSet = sets["Root"]["Root"];
-        var combined = promptService.GetCombinedPrompts(salesSet, rootSet);
+        var combined = promptContext.GetCombinedPrompts(salesSet, rootSet);
 
         // Assert
         Assert.Contains("Root System", combined);
@@ -411,10 +414,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("ConstrainPromptList", "true")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
         var setA = sets["SetA"]["Root"];
 
         // Assert
@@ -448,10 +451,10 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string?>("ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
         // Act
-        var sets = await promptService.LoadPromptSetsAsync(false, null);
+        var sets = await promptContext.LoadPromptSetsAsync(false, null);
         var setA = sets["SetA"]["Root"];
 
         // Assert
@@ -481,9 +484,9 @@ public class PromptSetLoaderTests
             new KeyValuePair<string, string>("PromptSeparator", "\n  {filename}:  \n")
         });
         var config = configBuilder.Build();
-        var promptService = new PromptService(config);
+        var promptContext = new PromptContext().WithConfig(config);
 
-        var result = promptService.GetCombinedPrompts(set);
+        var result = promptContext.GetCombinedPrompts(set);
 
         // Should start with the header for the first prompt, trimmed
         Assert.StartsWith("System:  \nYou are a helpful agent.", result);
