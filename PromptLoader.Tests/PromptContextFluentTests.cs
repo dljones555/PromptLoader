@@ -47,8 +47,8 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
         configBuilder.AddInMemoryCollection(new[]
         {
             new KeyValuePair<string, string>("PromptLoader:PromptsFolder", _testDir),
-            new KeyValuePair<string, string>("PportedPromptExtensions:0", ".prompt"),
-            new KeyValuePair<string, string>("PportedPromptExtensions:1", ".txt"),
+            new KeyValuePair<string, string>("PromptLoader:PromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PromptLoader:PromptExtensions:1", ".txt"),
             new KeyValuePair<string, string>("PromptLoader:ConstrainPromptList", "false")
         });
         var config = configBuilder.Build();
