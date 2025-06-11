@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using PromptLoader.Models;
+using PromptLoader.Utils;
 using System.Runtime.CompilerServices;
 
 namespace PromptLoader.Fluent
@@ -265,9 +266,9 @@ namespace PromptLoader.Fluent
         public async Task<Dictionary<string, Prompt>> LoadPromptsAsync(bool cascadeOverride = true, string? promptsFolder = null)
         {
             var folder = promptsFolder
-                ?? _options?.PromptsFolder
+                ?? PathUtils.ResolvePromptPath(_options?.PromptsFolder
                 ?? _config?["PromptsFolder"]
-                ?? "Prompts";
+                ?? "Prompts");
             var supportedExtensions = GetSupportedExtensions();
             _prompts = await LoadPromptsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _prompts;
@@ -276,9 +277,9 @@ namespace PromptLoader.Fluent
         public async Task<Dictionary<string, Dictionary<string, PromptSet>>> LoadPromptSetsAsync(bool cascadeOverride = true, string? promptSetFolder = null)
         {
             var folder = promptSetFolder
-                ?? _options?.PromptSetFolder
+                ?? PathUtils.ResolvePromptPath(_options?.PromptSetFolder
                 ?? _config?["PromptSetFolder"]
-                ?? "PromptSets";
+                ?? "PromptSets");
             var supportedExtensions = GetSupportedExtensions();
             _promptSets = await LoadPromptSetsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _promptSets;
