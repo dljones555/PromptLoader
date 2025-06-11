@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
-using PromptLoader.Services;
 using PromptLoader.Utils;
 using PromptLoader.Fluent;
 
@@ -15,12 +14,8 @@ var config = new ConfigurationBuilder()
 
 // Set up DI
 var services = new ServiceCollection();
-services.AddSingleton<IPromptService, PromptService>();
 services.AddSingleton<IConfiguration>(config);
 var provider = services.BuildServiceProvider();
-
-// Get singleton instance from DI
-var promptService = provider.GetRequiredService<IPromptService>();
 
 // Set up the kernel and OpenAI chat completion service  
 var builder = Kernel.CreateBuilder();
