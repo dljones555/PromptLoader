@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
-using PromptLoader.Services;
 using PromptLoader.Fluent;
 using Xunit;
 
@@ -9,7 +8,6 @@ namespace PromptLoader.Tests;
 public class PromptSetLoaderTests
 {
     private readonly IConfiguration _config;
-    private readonly IPromptService _promptService;
     private readonly IPromptContext _promptContext;
 
     public PromptSetLoaderTests()

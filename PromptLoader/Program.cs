@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PromptLoader.Models;
-using PromptLoader.Services;
 using PromptLoader.Utils;
 using PromptLoader.Fluent;
 

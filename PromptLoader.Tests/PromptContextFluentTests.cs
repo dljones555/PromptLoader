@@ -42,12 +42,24 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task LoadPrompts_FromFolder_Fluent_Works()
     {
+        // Arrange
+        var configBuilder = new ConfigurationBuilder();
+        configBuilder.AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string>("PromptLoader:PromptsFolder", _testDir),
+            new KeyValuePair<string, string>("PportedPromptExtensions:0", ".prompt"),
+            new KeyValuePair<string, string>("PportedPromptExtensions:1", ".txt"),
+            new KeyValuePair<string, string>("PromptLoader:ConstrainPromptList", "false")
+        });
+        var config = configBuilder.Build();
+        var promptContext = new PromptContext().WithConfig(config);
+
         await File.WriteAllTextAsync(Path.Combine(_testDir, "a.prompt"), "Prompt A");
         await File.WriteAllTextAsync(Path.Combine(_testDir, "b.txt"), "Prompt B");
 
         var ctx = await PromptContext
             .FromFolder(_testDir)
-            .WithConfig(_config)
+            .WithConfig(config)
             .LoadAsync();
 
         var a = ctx.Get("Root/a").AsString();
