@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using PromptLoader.Models;
 
 namespace PromptLoader.Utils
@@ -11,7 +12,6 @@ namespace PromptLoader.Utils
             var exePath = Path.GetFullPath(Path.Combine(exeDir, relativePath));
             if (Directory.Exists(exePath)) return exePath;
 
-
             // TODO: This is from CoPilot. Vet this logic.
 
             var dir = exeDir;
@@ -22,6 +22,32 @@ namespace PromptLoader.Utils
                 dir = Path.GetFullPath(Path.Combine(dir, ".."));
             }
             return exePath;
+        }
+
+        public static string ResolvePromptsFolder(PromptLoaderOptions? options, IConfiguration? config = null)
+        {
+            return ResolvePromptPath(
+                options?.PromptsFolder
+                ?? config?["PromptsFolder"]
+                ?? "Prompts");
+        }
+
+        public static string ResolvePromptSetFolder(PromptLoaderOptions? options, IConfiguration? config = null)
+        {
+            return ResolvePromptPath(
+                options?.PromptSetFolder
+                ?? config?["PromptSetFolder"]
+                ?? "PromptSets");
+        }
+
+        public static string[] GetSupportedPromptExtensions(PromptLoaderOptions? options, IConfiguration? config = null)
+        {
+            if (options?.SupportedPromptExtensions != null && options.SupportedPromptExtensions.Length > 0)
+                return options.SupportedPromptExtensions;
+            var exts = config?.GetSection("SupportedPromptExtensions").Get<string[]>();
+            if (exts != null && exts.Length > 0)
+                return exts;
+            return new[] { ".txt", ".prompt", ".yml", ".jinja", ".jinja2", ".prompt.md", ".md" };
         }
     }
 
