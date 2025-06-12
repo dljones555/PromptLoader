@@ -13,10 +13,9 @@ namespace PromptLoader.Fluent
         private readonly string _folder;
         private readonly bool _cascadeOverride;
         private readonly string[] _supportedExtensions;
-
         public FileSystemPromptSource(string folder, bool cascadeOverride = true, string[]? supportedExtensions = null)
         {
-            _folder = folder;
+            _folder = PathUtils.ResolvePromptPath(folder);
             _cascadeOverride = cascadeOverride;
             _supportedExtensions = supportedExtensions ?? new[] { ".txt", ".prompt", ".yml", ".jinja", ".jinja2", ".prompt.md", ".md" };
         }
@@ -127,7 +126,7 @@ namespace PromptLoader.Fluent
             return result;
         }
 
-        private static PromptFormat GetFormatFromExtension(string extension)
+        private PromptFormat GetFormatFromExtension(string extension)
         {
             return extension.ToLowerInvariant() switch
             {

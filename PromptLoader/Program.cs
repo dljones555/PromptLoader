@@ -69,8 +69,8 @@ chatHistory.AddUserMessage("I want to send a small payload into space and piggyb
 // Define prompt sources
 var roots = new List<IPromptSource>
 {
-    new FileSystemPromptSource(folder: "Prompts/CustomerService"),
-    new FileSystemPromptSource(folder: "Prompts/Sales"),
+    new FileSystemPromptSource(folder: "PromptSets/CustomerService"),
+    new FileSystemPromptSource(folder: "PromptSets/Sales"),
     // In the future: new RemotePromptSource(config, uri: "https://api.example.com/prompts")
 };
 
@@ -80,11 +80,6 @@ var rootsPromptContext = await promptContext.LoadAsync();
 // Get the chat completion service and send the chat history  
 var chatService = kernel.GetRequiredService<IChatCompletionService>();
 var response = await chatService.GetChatMessageContentAsync(chatHistory);
-
-// Shadows of MCP 
-
-
-
 
 // Output the assistant's reply  
 Console.WriteLine(response.Content);
