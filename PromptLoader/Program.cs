@@ -59,6 +59,24 @@ chatHistory.AddSystemMessage(systemPrompt);
 chatHistory.AddSystemMessage(salesCombined);
 chatHistory.AddUserMessage("I want to send a small payload into space and piggyback with other payloads. Which rocket companies can do this?");
 
+// MCP direction
+//var roots = new List<Root>
+//{
+//    new Root { Uri = "file:///C:/Projects/PromptLoader/Prompts", Name = "Local Prompts" },
+//    new Root { Uri = "https://api.example.com/prompts", Name = "Remote Prompts" }
+//};
+
+// Define prompt sources
+var roots = new List<IPromptSource>
+{
+    new FileSystemPromptSource(folder: "PromptSets/CustomerService"),
+    new FileSystemPromptSource(folder: "PromptSets/Sales"),
+    // In the future: new RemotePromptSource(config, uri: "https://api.example.com/prompts")
+};
+
+var promptContext = new PromptContext(roots);
+var rootsPromptContext = await promptContext.LoadAsync();
+
 // Get the chat completion service and send the chat history  
 var chatService = kernel.GetRequiredService<IChatCompletionService>();
 var response = await chatService.GetChatMessageContentAsync(chatHistory);

@@ -1,0 +1,106 @@
+﻿                      ┌──────────────────────┐
+                      │    Prompt Authors    │
+                      │ (Biz, Eng, Legal Ops)│
+                      └────────▲─────────────┘
+                               │
+                   [ Prompt Management Portal ]
+                               │
+                               ▼
+                   ┌──────────────────────────┐
+                   │   Prompt Repository      │
+                   │ (MCP Roots + Prompts)    │
+                   │   - Versioned            │
+                   │   - Signed / Audited     │
+                   │   - Access Controlled    │
+                   └────────────┬─────────────┘
+                                │
+             ┌──────────────────┼────────────────────┐
+             │                  │                    │
+             ▼                  ▼                    ▼
+┌──────────────────┐  ┌──────────────────┐  ┌────────────────────┐
+│ Prompt Loader API│  │ Prompt Resolver  │  │ Prompt Evaluator   │
+│  (by name/id)    │  │ (inherit, chain) │  │ (test/gate before  │
+│  /resolve/sales  │  │ system.txt → ↪ CS│  │ release)           │
+└──────┬───────────┘  └──────────▲───────┘  └────────────▲───────┘
+       │                         │                       │
+       ▼                         ▼                       ▼
+┌────────────────────────────────────────────────────────────┐
+│           Server-Side Chat Completion Service              │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │  Chat Context Composer                                 │ │
+│ │  ┌───────────────────────────────────────────────────┐ │ │
+│ │  │ SYSTEM: from resolved prompts                     │ │ |
+│ │  │ ASSISTANT: optional priming or previous response  │ │ |
+│ │  │ USER: from API call                               │ │ |
+│ │  └───────────────────────────────────────────────────┘ │ │
+│ └────────────────────────────────────────────────────────┘ │
+│   Sends to LLM (OpenAI, Azure, Bedrock, OSS, etc.)         │
+└────────────────────────────────────────────────────────────┘
+                               ▲
+                               │
+                      ┌────────┴────────┐
+                      │ Client/Frontend │
+                      │-user prompt only| 
+                      └─────────────────┘
+
+Security Principles in This Model
+
+Element     	            Secure Behavior
+
+System Prompts	            Stored server-side only, never exposed to client
+Prompt Roots	            Locked by role-based access control (RBAC)
+Prompt Context Build	    Happens only server-side
+User Input	                Passed as-is, sanitized before LLM call
+Prompt IDs	                Referenced by name/hash/version — not full content
+Eval & Release Flow	        Prompts are gated via testing before being promoted to production
+Audit Trail	                All prompt changes are versioned and traceable
+
+ChatGPT ideation plus PMF analysis 6/13/2025
+
+https://chatgpt.com/c/684a01e3-b3a0-800d-bb2e-2b22d19c6eb4
+
+PromptLayer:
+- https://www.promptlayer.com 
+- End-to-end solution. 
+- API returns prompts. 
+- Compared to DataDog. 
+- LangChain based. 
+- Per git history, since 12/2022. 
+- Part of Magniv.
+
+
+---
+
+MCP compliant JSON
+
+bash: promptctl get refund --root customer-service
+
+https://modelcontextprotocol.io/
+
+{
+  "id": "customer-support:refund",
+  "name": "refund",
+  "root": "customer-support",
+  "format": "mcp+json",
+  "version": "1.0.0",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a polite agent who handles refund requests. Always verify order ID before proceeding."
+    },
+    {
+      "role": "user",
+      "content": "I want a refund for my last order."
+    }
+  ],
+  "metadata": {
+    "description": "Handles refund request scenarios in customer service workflows.",
+    "tags": ["refund", "customer-support", "finance"],
+    "created_by": "Suzy Q, PromptOps Team",
+    "last_updated": "2025-06-11T10:35:00Z",
+    "token_estimate": 98,
+    "eval_passed": true
+  }
+}
+
+

@@ -2,16 +2,18 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using PromptLoader.Models;
 using PromptLoader.Utils;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace PromptLoader.Fluent
 {
     public class PromptContext : IPromptContext
     {
         private readonly PromptLoaderOptions _options;
-        // Change the `_config` field to not be readonly since it is being reassigned in the `WithConfig` method.
         private IConfiguration? _config;
         public PromptListType PromptListType { get; private set; }
+        private readonly IEnumerable<IPromptSource>? _promptSources;
 
         private Dictionary<string, Dictionary<string, PromptSet>> _promptSets = new();
         private Dictionary<string, Prompt> _prompts = new();
@@ -29,6 +31,7 @@ namespace PromptLoader.Fluent
         {
             _options = options.Value;
             _config = null;
+            _promptSources = null;
             LoadOptions();
         }
 
@@ -37,6 +40,7 @@ namespace PromptLoader.Fluent
         {
             _config = config;
             _options = config.GetSection("PromptLoader").Get<PromptLoaderOptions>() ?? new PromptLoaderOptions();
+            _promptSources = null;
             LoadOptions();
         }
 
@@ -45,23 +49,30 @@ namespace PromptLoader.Fluent
         {
             _options = options;
             _config = null;
+            _promptSources = null;
             LoadOptions();
         }
 
         // Constructor 4: No DI, No config, No options, defaults
         public PromptContext()
         {
-            // TODO: Defaults should be here
             _options = new PromptLoaderOptions();
             _config = null;
+            _promptSources = null;
+            LoadOptions();
+        }
 
-            // Seems extraneous from when Gemini ripped out PromptListType
+        // Constructor 5: Accepts multiple prompt sources (roots)
+        public PromptContext(IEnumerable<IPromptSource> promptSources)
+        {
+            _promptSources = promptSources;
+            _options = new PromptLoaderOptions();
+            _config = null;
             LoadOptions();
         }
 
         private void LoadOptions()
         {
-            // PromptListType
             PromptListType parsedType;
             if (_config != null && !Enum.TryParse(_config["PromptListType"], true, out parsedType))
             {
@@ -97,10 +108,8 @@ namespace PromptLoader.Fluent
 
         public PromptContext WithConfig(IConfiguration config)
         {
-            // This allows fluent API to override config after construction
             _config = config;
             var options = config.GetSection("PromptLoader").Get<PromptLoaderOptions>() ?? new PromptLoaderOptions();
-            // Copy over options
             _options.PromptsFolder = options.PromptsFolder;
             _options.PromptSetFolder = options.PromptSetFolder;
             _options.PromptListType = options.PromptListType;
@@ -124,6 +133,23 @@ namespace PromptLoader.Fluent
 
         public async Task<PromptContext> LoadAsync()
         {
+            if (_promptSources != null)
+            {
+                _prompts.Clear();
+                _promptSets.Clear();
+                foreach (var source in _promptSources)
+                {
+                    var prompts = await source.LoadPromptsAsync();
+                    foreach (var kvp in prompts)
+                        _prompts[kvp.Key] = kvp.Value;
+
+                    var promptSets = await source.LoadPromptSetsAsync();
+                    foreach (var setKvp in promptSets)
+                        _promptSets[setKvp.Key] = setKvp.Value;
+                }
+                return this;
+            }
+
             if (_config == null && _options == null)
                 throw new InvalidOperationException("Configuration or options are not set. Call WithConfig or use a constructor with options/config.");
 
@@ -141,7 +167,6 @@ namespace PromptLoader.Fluent
             }
             else
             {
-                // Default: load from config/options
                 _promptSets = await LoadPromptSetsAsync(_cascadeOverride);
             }
             return this;
@@ -269,7 +294,7 @@ namespace PromptLoader.Fluent
                 ?? PathUtils.ResolvePromptPath(_options?.PromptsFolder
                 ?? _config?["PromptsFolder"]
                 ?? "Prompts");
-            var supportedExtensions = GetSupportedExtensions();
+            var supportedExtensions = PathUtils.GetSupportedPromptExtensions(_options, _config);
             _prompts = await LoadPromptsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _prompts;
         }
@@ -283,6 +308,11 @@ namespace PromptLoader.Fluent
             var supportedExtensions = GetSupportedExtensions();
             _promptSets = await LoadPromptSetsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _promptSets;
+        }
+
+        private string[] GetSupportedExtensions()
+        {
+            return PathUtils.GetSupportedPromptExtensions(_options);
         }
 
         public string GetCombinedPrompts(Dictionary<string, PromptSet> promptSets, string setName, string? separator = null)
@@ -372,16 +402,6 @@ namespace PromptLoader.Fluent
         }
 
         // Helpers
-        private string[] GetSupportedExtensions()
-        {
-            if (_options?.SupportedPromptExtensions != null && _options.SupportedPromptExtensions.Length > 0)
-                return _options.SupportedPromptExtensions;
-            var exts = _config?.GetSection("SupportedPromptExtensions").Get<string[]>();
-            if (exts != null && exts.Length > 0)
-                return exts;
-            return new[] { ".txt", ".prompt", ".yml", ".jinja", ".jinja2", ".prompt.md", ".md" };
-        }
-
         private static string ToPascalCase(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
