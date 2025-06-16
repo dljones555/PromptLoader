@@ -17,7 +17,7 @@ namespace PromptLoader.Fluent
         {
             _folder = PathUtils.ResolvePromptPath(folder);
             _cascadeOverride = cascadeOverride;
-            _supportedExtensions = supportedExtensions ?? new[] { ".txt", ".prompt", ".yml", ".jinja", ".jinja2", ".prompt.md", ".md" };
+            _supportedExtensions = supportedExtensions ?? PathUtils.GetSupportedPromptExtensions();
         }
 
         public async Task<Dictionary<string, Prompt>> LoadPromptsAsync()
