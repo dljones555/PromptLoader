@@ -294,7 +294,7 @@ namespace PromptLoader.Fluent
                 ?? PathUtils.ResolvePromptPath(_options?.PromptsFolder
                 ?? _config?["PromptsFolder"]
                 ?? "Prompts");
-            var supportedExtensions = PathUtils.GetSupportedPromptExtensions(_options);
+            var supportedExtensions = PathUtils.GetSupportedPromptExtensions(_options, _config);
             _prompts = await LoadPromptsInternalAsync(folder, cascadeOverride, supportedExtensions);
             return _prompts;
         }
