@@ -40,14 +40,14 @@ namespace PromptLoader.Utils
                 ?? "PromptSets");
         }
 
-        public static string[] GetSupportedPromptExtensions(PromptLoaderOptions? options, IConfiguration? config = null)
+        public static string[] GetSupportedPromptExtensions(PromptLoaderOptions? options = null, IConfiguration? config = null)
         {
             if (options?.SupportedPromptExtensions != null && options.SupportedPromptExtensions.Length > 0)
                 return options.SupportedPromptExtensions;
             var exts = config?.GetSection("SupportedPromptExtensions").Get<string[]>();
             if (exts != null && exts.Length > 0)
                 return exts;
-            return new[] { ".txt", ".prompt", ".yml", ".jinja", ".jinja2", ".prompt.md", ".md" };
+            return new[] { ".txt", ".prompt", ".yml", ".yaml", ".jinja", ".jinja2", ".prompt.md", ".md" };
         }
     }
 

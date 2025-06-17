@@ -1,5 +1,10 @@
 using Microsoft.Extensions.Configuration;
 using PromptLoader.Fluent;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using Xunit;
 
 namespace PromptLoader.Tests;
 
@@ -127,4 +132,4 @@ public class PromptContextFluentTests : IAsyncLifetime, IDisposable
         if (Directory.Exists(_testDir))
             Directory.Delete(_testDir, true);
     }
-} 
+}
