@@ -1,6 +1,7 @@
 using PromptLoader.Models.MCP;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace PromptLoader.Core
@@ -13,6 +14,7 @@ namespace PromptLoader.Core
         private readonly List<PromptRoot> _roots = new();
         private readonly Dictionary<string, PromptDefinition> _promptCache = new(StringComparer.OrdinalIgnoreCase);
         private bool _initialized = false;
+        private readonly PromptRegistry? _registry;
 
         /// <summary>
         /// Creates a new instance of the PromptStore class.
@@ -40,6 +42,15 @@ namespace PromptLoader.Core
         }
 
         /// <summary>
+        /// Creates a new instance of the PromptStore class with the specified registry.
+        /// </summary>
+        /// <param name="registry">The registry to use.</param>
+        public PromptStore(PromptRegistry registry)
+        {
+            _registry = registry;
+        }
+
+        /// <summary>
         /// Adds a root to the store.
         /// </summary>
         /// <param name="root">The root to add.</param>
@@ -58,13 +69,20 @@ namespace PromptLoader.Core
             if (_initialized)
                 return;
 
+            if (_registry != null)
+            {
+                await _registry.InitializeAsync();
+                _initialized = true;
+                return;
+            }
+
             _promptCache.Clear();
             foreach (var root in _roots)
             {
                 var prompts = await root.LoadPromptsAsync();
-                foreach (var prompt in prompts)
+                foreach (var definition in prompts)
                 {
-                    _promptCache[prompt.Name] = prompt;
+                    _promptCache[definition.Name] = definition;
                 }
             }
 
@@ -81,10 +99,16 @@ namespace PromptLoader.Core
             if (!_initialized)
                 await InitializeAsync();
 
-            if (!_promptCache.TryGetValue(name, out var prompt))
+            if (_registry != null)
+            {
+                var regDefinition = await _registry.GetPromptAsync(name);
+                return new PromptCompose(regDefinition);
+            }
+
+            if (!_promptCache.TryGetValue(name, out var definition))
                 throw new KeyNotFoundException($"Prompt '{name}' not found.");
 
-            return new PromptCompose(prompt);
+            return new PromptCompose(definition);
         }
 
         /// <summary>
@@ -97,10 +121,16 @@ namespace PromptLoader.Core
             if (!_initialized)
                 InitializeAsync().GetAwaiter().GetResult();
 
-            if (!_promptCache.TryGetValue(name, out var prompt))
+            if (_registry != null)
+            {
+                var regDefinition = _registry.GetPromptAsync(name).GetAwaiter().GetResult();
+                return new PromptCompose(regDefinition);
+            }
+
+            if (!_promptCache.TryGetValue(name, out var definition))
                 throw new KeyNotFoundException($"Prompt '{name}' not found.");
 
-            return new PromptCompose(prompt);
+            return new PromptCompose(definition);
         }
 
         /// <summary>
@@ -112,7 +142,59 @@ namespace PromptLoader.Core
             if (!_initialized)
                 await InitializeAsync();
 
+            if (_registry != null)
+            {
+                return await _registry.ListPromptsAsync();
+            }
+
             return _promptCache.Values;
+        }
+
+        /// <summary>
+        /// Lists all prompts in the store.
+        /// </summary>
+        /// <returns>A collection of prompt definitions.</returns>
+        public IEnumerable<PromptDefinition> ListPrompts()
+        {
+            if (!_initialized)
+                InitializeAsync().GetAwaiter().GetResult();
+
+            if (_registry != null)
+            {
+                return _registry.ListPromptsAsync().GetAwaiter().GetResult();
+            }
+
+            return _promptCache.Values;
+        }
+
+        /// <summary>
+        /// Invalidates the cache for a specific prompt.
+        /// </summary>
+        /// <param name="name">The name of the prompt.</param>
+        public void InvalidatePrompt(string name)
+        {
+            if (_registry != null)
+            {
+                _registry.InvalidatePrompt(name);
+                return;
+            }
+
+            _promptCache.Remove(name);
+        }
+
+        /// <summary>
+        /// Invalidates the entire cache.
+        /// </summary>
+        public void InvalidateCache()
+        {
+            if (_registry != null)
+            {
+                _registry.InvalidateCache();
+                return;
+            }
+
+            _promptCache.Clear();
+            _initialized = false;
         }
     }
 }
