@@ -2,7 +2,7 @@
 
 # Overview
 
-6/24/2025 - MCP support in progress. Have checked out [https://www.modelcontextprotocol.io](https://www.modelcontextprotocol.io). This is being refactored to support Prompts and Roots.
+6/24/2025 - MCP support in progress. Have checked out [https://modelcontextprotocol.io](https://modelcontextprotocol.io). This is being refactored to support Prompts and Roots.
 
 MCP Server support for Prompts will not so much focused on Web API or method annotation, but root source loading (file://, https://, API, github and cloud prompt SaaS) named prompt support.
 
