@@ -47,7 +47,7 @@ model: gpt-4
 
             // Act
             var root = PromptRoot.FromFile(_testDir);
-            var prompts = await root.LoadPromptsAsync();
+            var prompts = await root.LoadAsync();
             var promptsList = prompts.ToList();
 
             // Assert

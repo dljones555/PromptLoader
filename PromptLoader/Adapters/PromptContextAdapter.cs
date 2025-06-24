@@ -69,7 +69,7 @@ namespace PromptLoader.Adapters
             if (_store != null)
                 return _store;
 
-            var roots = new List<PromptRoot>();
+            var roots = new List<IRoot>();
 
             // Convert legacy prompt sets to roots
             foreach (var setKvp in _legacyContext.PromptSets)

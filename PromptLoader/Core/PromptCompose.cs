@@ -2,6 +2,7 @@ using PromptLoader.Models.MCP;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace PromptLoader.Core
@@ -11,6 +12,8 @@ namespace PromptLoader.Core
     /// </summary>
     public class PromptCompose
     {
+        private static readonly Regex ArgumentPlaceholderRegex = new(@"\{\{([^{}]+)\}\}", RegexOptions.Compiled);
+
         private readonly PromptDefinition _promptDefinition;
         private readonly Dictionary<string, string> _arguments = new(StringComparer.OrdinalIgnoreCase);
         private string? _language;
@@ -114,27 +117,91 @@ namespace PromptLoader.Core
         }
 
         /// <summary>
+        /// Replaces argument placeholders in text content.
+        /// </summary>
+        /// <param name="text">The text with placeholders.</param>
+        /// <returns>The text with placeholders replaced by argument values.</returns>
+        private string ReplaceArguments(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            return ArgumentPlaceholderRegex.Replace(text, match =>
+            {
+                var argName = match.Groups[1].Value.Trim();
+                return _arguments.TryGetValue(argName, out var value) ? value : match.Value;
+            });
+        }
+
+        /// <summary>
+        /// Creates a copy of a message with argument placeholders replaced.
+        /// </summary>
+        /// <param name="message">The original message.</param>
+        /// <returns>A new message with argument placeholders replaced.</returns>
+        private PromptMessage ProcessMessage(PromptMessage message)
+        {
+            // Create a new message with the same role
+            var processedMessage = new PromptMessage
+            {
+                Role = message.Role
+            };
+
+            // Process the content based on its type
+            if (message.Content is TextContent textContent)
+            {
+                // Replace arguments in the text content
+                processedMessage.Content = new TextContent
+                {
+                    Text = ReplaceArguments(textContent.Text)
+                };
+            }
+            else if (message.Content is ResourceContent resourceContent)
+            {
+                // Create a copy of the resource content
+                var processedResource = new Resource
+                {
+                    Uri = resourceContent.Resource.Uri,
+                    MimeType = resourceContent.Resource.MimeType,
+                    Text = resourceContent.Resource.Text
+                };
+
+                // Replace arguments in the resource text if available
+                if (!string.IsNullOrEmpty(processedResource.Text))
+                {
+                    processedResource.Text = ReplaceArguments(processedResource.Text);
+                }
+
+                processedMessage.Content = new ResourceContent
+                {
+                    Resource = processedResource
+                };
+            }
+            else
+            {
+                // For other content types, just use the original
+                processedMessage.Content = message.Content;
+            }
+
+            return processedMessage;
+        }
+
+        /// <summary>
         /// Composes the prompt with the provided arguments and resources.
         /// </summary>
-        /// <returns>A task that returns the composed prompt as a GetPromptResult.</returns>
+        /// <returns>The composed prompt as a GetPromptResult.</returns>
         public GetPromptResult Compose()
         {
             ValidateRequiredArguments();
 
-            // This is a placeholder implementation that would be replaced with actual composition logic
             var result = new GetPromptResult
             {
                 Description = _promptDefinition.Description
             };
 
-            // Add a system message with the prompt name
-            result.Messages.Add(PromptMessage.System($"Using prompt: {_promptDefinition.Name}"));
-
-            // Add user message with arguments
-            if (_arguments.Any())
+            // Process messages from the prompt definition (replacing argument placeholders)
+            foreach (var message in _promptDefinition.Messages)
             {
-                var argsText = string.Join("\n", _arguments.Select(a => $"{a.Key}: {a.Value}"));
-                result.Messages.Add(PromptMessage.User(argsText));
+                result.Messages.Add(ProcessMessage(message));
             }
 
             // Add resource messages

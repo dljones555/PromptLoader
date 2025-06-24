@@ -11,7 +11,7 @@ namespace PromptLoader
     /// </summary>
     public class PromptKit
     {
-        private PromptRoot? _root;
+        private IRoot _root;
         private PromptStore? _store;
         private string? _promptName;
         private readonly Dictionary<string, string> _arguments = new(StringComparer.OrdinalIgnoreCase);
@@ -41,7 +41,7 @@ namespace PromptLoader
         /// </summary>
         /// <param name="root">The root to use.</param>
         /// <returns>A new PromptKit instance.</returns>
-        public static PromptKit UseRoot(PromptRoot root)
+        public static PromptKit UseRoot(IRoot root)
         {
             return new PromptKit
             {
@@ -71,7 +71,7 @@ namespace PromptLoader
         {
             return new PromptKit
             {
-                _root = PromptRoot.FromGit(repoUrl)
+                _root = new GitRoot(repoUrl)
             };
         }
 
@@ -85,7 +85,7 @@ namespace PromptLoader
         {
             return new PromptKit
             {
-                _root = PromptRoot.FromUri(url, name)
+                _root = new HttpRoot(url, name)
             };
         }
 

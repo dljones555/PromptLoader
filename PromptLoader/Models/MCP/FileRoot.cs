@@ -1,100 +1,61 @@
-using PromptLoader.Models.MCP;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace PromptLoader.Core
+namespace PromptLoader.Models.MCP
 {
     /// <summary>
-    /// Represents a source of prompts in the MCP standard.
+    /// Represents a file-based root in the MCP standard.
     /// </summary>
-    public class PromptRoot
+    public class FileRoot : IRoot
     {
-        private readonly Root _root;
+        /// <summary>
+        /// Gets the URI of the root.
+        /// </summary>
+        public string Uri { get; }
 
         /// <summary>
-        /// Gets the root information.
+        /// Gets the name of the root.
         /// </summary>
-        public Root Root => _root;
+        public string Name { get; }
 
         /// <summary>
-        /// Creates a new instance of the PromptRoot class with the specified root.
+        /// Creates a new instance of the FileRoot class.
         /// </summary>
-        /// <param name="root">The root information.</param>
-        private PromptRoot(Root root)
+        /// <param name="path">The file system path.</param>
+        /// <param name="name">Optional custom name for the root.</param>
+        public FileRoot(string path, string? name = null)
         {
-            _root = root;
-        }
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-        /// <summary>
-        /// Creates a PromptRoot from a file path.
-        /// </summary>
-        /// <param name="path">The file path.</param>
-        /// <param name="name">The name of the root.</param>
-        /// <returns>A new PromptRoot instance.</returns>
-        public static IRoot FromFile(string path, string? name = null)
-        {
             var normalizedPath = Path.GetFullPath(path);
-            var uri = $"file://{normalizedPath}";
-            var rootName = name ?? Path.GetFileName(normalizedPath);
-            
-            return new FileRoot(uri, rootName);
+            Uri = $"file://{normalizedPath}";
+            Name = name ?? Path.GetFileName(normalizedPath);
         }
 
         /// <summary>
-        /// Creates a PromptRoot from a URI.
+        /// Gets the local file system path from this root's URI.
         /// </summary>
-        /// <param name="uri">The URI.</param>
-        /// <param name="name">The name of the root.</param>
-        /// <returns>A new PromptRoot instance.</returns>
-        public static PromptRoot FromUri(string uri, string name)
+        /// <returns>The local file system path.</returns>
+        public string GetLocalPath()
         {
-            return new PromptRoot(new Root(uri, name));
+            return Uri.Replace("file://", string.Empty).TrimStart('/');
         }
-
-        /// <summary>
-        /// Creates a PromptRoot from a Git repository.
-        /// </summary>
-        /// <param name="repoUrl">The Git repository URL.</param>
-        /// <param name="name">The name of the root.</param>
-        /// <returns>A new PromptRoot instance.</returns>
-        public static PromptRoot FromGit(string repoUrl, string? name = null)
-        {
-            var rootName = name ?? Path.GetFileNameWithoutExtension(repoUrl);
-            return new PromptRoot(new Root(repoUrl, rootName));
-        }
-
+        
         /// <summary>
         /// Loads prompts from this root.
         /// </summary>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task<IEnumerable<PromptDefinition>> LoadPromptsAsync()
+        /// <returns>A collection of prompt definitions.</returns>
+        public async Task<IEnumerable<PromptDefinition>> LoadAsync()
         {
-            if (_root.IsFileUri())
-            {
-                return await LoadPromptsFromFileSystemAsync();
-            }
-            else if (_root.IsHttpUri())
-            {
-                return await LoadPromptsFromHttpAsync();
-            }
-            else if (_root.IsGitUri())
-            {
-                return await LoadPromptsFromGitAsync();
-            }
-            else
-            {
-                throw new NotSupportedException($"Unsupported root URI: {_root.Uri}");
-            }
-        }
-
-        private async Task<IEnumerable<PromptDefinition>> LoadPromptsFromFileSystemAsync()
-        {
-            var path = _root.GetLocalPath();
+            var path = GetLocalPath();
             var result = new List<PromptDefinition>();
 
             if (!Directory.Exists(path))
@@ -154,11 +115,22 @@ namespace PromptLoader.Core
                         var name = Path.GetFileNameWithoutExtension(file);
                         var content = await File.ReadAllTextAsync(file);
 
-                        result.Add(new PromptDefinition
+                        // Create a message with the file content
+                        var message = new PromptMessage
+                        {
+                            Role = "user",
+                            Content = new TextContent { Text = content }
+                        };
+
+                        // Create a prompt definition with the message
+                        var prompt = new PromptDefinition
                         {
                             Name = name,
-                            Description = $"Prompt loaded from {Path.GetFileName(file)}"
-                        });
+                            Description = $"Prompt loaded from {Path.GetFileName(file)}",
+                            Messages = new List<PromptMessage> { message }
+                        };
+
+                        result.Add(prompt);
                     }
                     catch (Exception ex)
                     {
@@ -189,22 +161,6 @@ namespace PromptLoader.Core
             {
                 PropertyNameCaseInsensitive = true
             });
-        }
-
-        private async Task<IEnumerable<PromptDefinition>> LoadPromptsFromHttpAsync()
-        {
-            // Implementation would load prompts from an HTTP endpoint
-            // This is a placeholder for now
-            await Task.CompletedTask;
-            return Array.Empty<PromptDefinition>();
-        }
-
-        private async Task<IEnumerable<PromptDefinition>> LoadPromptsFromGitAsync()
-        {
-            // Implementation would load prompts from a Git repository
-            // This is a placeholder for now
-            await Task.CompletedTask;
-            return Array.Empty<PromptDefinition>();
         }
     }
 }

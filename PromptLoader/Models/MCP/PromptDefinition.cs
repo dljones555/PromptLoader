@@ -1,9 +1,10 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace PromptLoader.Models.MCP
 {
     /// <summary>
-    /// Represents a prompt definition according to the Model Context Protocol (MCP) standard.
+    /// Represents a prompt definition according to the MCP standard.
     /// </summary>
     public class PromptDefinition
     {
@@ -31,5 +32,12 @@ namespace PromptLoader.Models.MCP
         /// Gets or sets additional parameters for the model.
         /// </summary>
         public Dictionary<string, object>? ModelParameters { get; set; }
+
+        /// <summary>
+        /// Gets or sets the messages in the prompt.
+        /// </summary>
+        [JsonPropertyName("messages")]
+        public List<PromptMessage> Messages { get; set; } = new List<PromptMessage>();
     }
+
 }
