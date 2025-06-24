@@ -8,11 +8,11 @@ MCP Server support for Prompts will be differnet, and not so much focused on Web
 
 Have also done market research on other prompt management offerings out there.
 
-- There are prompt and eval tools exist, but don't allow pulling prompts into code for LLM chat completion execution.
+- Prompt and eval tools exist, but don't allow pulling prompts into code for LLM chat completion and agent API code.
 - Some of the prompt authoring tools are more consumer focused and fit the idea of allowing non-engineer roles.
-- There is some vendor lockin potential out there including with bigtech/cloud AI and startups.
-- LangChain has a pretty complete soluion solution, as does PromptLayer.
-- This library aims to play well with all options in Python and C#
+- There is some vendor lockin potential out there, including with bigtech/cloud AI and startups.
+- LangChain has a pretty complete soluion as does PromptLayer.
+- This library aims to play well with all options in Python and C#.
 - Searching github for functions that load prompts. A lot of inline prompts!
 
 **Please consider supporting this project with a GitHub star or sponsorship contribution!**
