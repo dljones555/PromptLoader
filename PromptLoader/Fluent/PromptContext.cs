@@ -470,31 +470,10 @@ namespace PromptLoader.Fluent
                 return new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
 
             var result = new Dictionary<string, Dictionary<string, PromptSet>>(StringComparer.OrdinalIgnoreCase);
+            var allowedNames = GetAllowedPromptNames();
 
-            bool constrain = _options?.ConstrainPromptList
-                ?? _config?.GetValue("ConstrainPromptList", false)
-                ?? false;
-            var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (constrain)
-            {
-                var promptList = _options?.PromptList
-                    ?? _config?.GetSection("PromptList").Get<string[]>();
-                if (promptList != null)
-                    allowedNames.UnionWith(promptList);
-            }
-
-            var rootLevelPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
-            foreach (var file in Directory.GetFiles(rootFolder, "*.*", SearchOption.TopDirectoryOnly))
-            {
-                var ext = Path.GetExtension(file);
-                if (!supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
-                var name = Path.GetFileNameWithoutExtension(file);
-                if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
-                    continue;
-                var content = await File.ReadAllTextAsync(file);
-                var format = GetFormatFromExtension(ext);
-                rootLevelPrompts[name] = new Prompt(content, format);
-            }
+            // Process root level prompts
+            var rootLevelPrompts = await LoadPromptsFromDirectoryAsync(rootFolder, supportedExtensions, allowedNames);
             if (rootLevelPrompts.Count > 0)
             {
                 result["Root"] = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase)
@@ -503,59 +482,102 @@ namespace PromptLoader.Fluent
                 };
             }
 
+            // Process subdirectories (top level)
             foreach (var topLevelDir in Directory.GetDirectories(rootFolder))
             {
                 var topLevelName = Path.GetFileName(topLevelDir);
                 var subSets = new Dictionary<string, PromptSet>(StringComparer.OrdinalIgnoreCase);
 
-                var rootPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
-                foreach (var file in Directory.GetFiles(topLevelDir, "*.*", SearchOption.TopDirectoryOnly))
-                {
-                    var ext = Path.GetExtension(file);
-                    if (!supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
-                    var name = Path.GetFileNameWithoutExtension(file);
-                    if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
-                        continue;
-                    var content = await File.ReadAllTextAsync(file);
-                    var format = GetFormatFromExtension(ext);
-                    rootPrompts[name] = new Prompt(content, format);
-                }
+                // Load prompts from the top level directory
+                var rootPrompts = await LoadPromptsFromDirectoryAsync(topLevelDir, supportedExtensions, allowedNames);
                 if (rootPrompts.Count > 0)
                 {
                     subSets["Root"] = new PromptSet { Name = "Root", Prompts = rootPrompts };
                 }
 
-                foreach (var subDir in Directory.GetDirectories(topLevelDir))
+                // Process subdirectories of the top level directory
+                await ProcessSubdirectoriesAsync(topLevelDir, rootPrompts, subSets, supportedExtensions, allowedNames, cascadeOverride);
+
+                if (subSets.Count > 0)
                 {
-                    var subName = Path.GetFileName(subDir);
-                    var subPrompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var file in Directory.GetFiles(subDir, "*.*", SearchOption.TopDirectoryOnly))
-                    {
-                        var ext = Path.GetExtension(file);
-                        if (!supportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase)) continue;
-                        var name = Path.GetFileNameWithoutExtension(file);
-                        if (constrain && allowedNames.Count > 0 && !allowedNames.Contains(name))
-                            continue;
-                        var content = await File.ReadAllTextAsync(file);
-                        var format = GetFormatFromExtension(ext);
-                        subPrompts[name] = new Prompt(content, format);
-                    }
-                    foreach (var parentPrompt in rootPrompts)
-                    {
-                        if (!subPrompts.ContainsKey(parentPrompt.Key))
-                        {
-                            subPrompts[parentPrompt.Key] = parentPrompt.Value;
-                        }
-                        else if (!cascadeOverride)
-                        {
-                            subPrompts[parentPrompt.Key] = parentPrompt.Value;
-                        }
-                    }
-                    subSets[subName] = new PromptSet { Name = subName, Prompts = subPrompts };
+                    result[topLevelName] = subSets;
                 }
-                result[topLevelName] = subSets;
             }
+
             return result;
+        }
+
+        private HashSet<string> GetAllowedPromptNames()
+        {
+            var allowedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool constrain = _options?.ConstrainPromptList
+                ?? _config?.GetValue("ConstrainPromptList", false)
+                ?? false;
+
+            if (constrain)
+            {
+                var promptList = _options?.PromptList
+                    ?? _config?.GetSection("PromptList").Get<string[]>();
+                if (promptList != null)
+                    allowedNames.UnionWith(promptList);
+            }
+
+            return allowedNames;
+        }
+
+        private async Task<Dictionary<string, Prompt>> LoadPromptsFromDirectoryAsync(
+            string directory,
+            string[] supportedExtensions,
+            HashSet<string> allowedNames)
+        {
+            var prompts = new Dictionary<string, Prompt>(StringComparer.OrdinalIgnoreCase);
+
+            var files = Directory.GetFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(f => supportedExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
+
+            foreach (var file in files)
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                if (allowedNames.Count > 0 && !allowedNames.Contains(name))
+                    continue;
+
+                var ext = Path.GetExtension(file);
+                var content = await File.ReadAllTextAsync(file);
+                var format = GetFormatFromExtension(ext);
+                prompts[name] = new Prompt(content, format);
+            }
+
+            return prompts;
+        }
+
+        private async Task ProcessSubdirectoriesAsync(
+            string parentDir,
+            Dictionary<string, Prompt> parentPrompts,
+            Dictionary<string, PromptSet> subSets,
+            string[] supportedExtensions,
+            HashSet<string> allowedNames,
+            bool cascadeOverride)
+        {
+            foreach (var subDir in Directory.GetDirectories(parentDir))
+            {
+                var subName = Path.GetFileName(subDir);
+                var subPrompts = await LoadPromptsFromDirectoryAsync(subDir, supportedExtensions, allowedNames);
+
+                // Apply inheritance from parent prompts
+                foreach (var parentPrompt in parentPrompts)
+                {
+                    if (!subPrompts.ContainsKey(parentPrompt.Key))
+                    {
+                        subPrompts[parentPrompt.Key] = parentPrompt.Value;
+                    }
+                    else if (!cascadeOverride)
+                    {
+                        subPrompts[parentPrompt.Key] = parentPrompt.Value;
+                    }
+                }
+
+                subSets[subName] = new PromptSet { Name = subName, Prompts = subPrompts };
+            }
         }
     }
 }
