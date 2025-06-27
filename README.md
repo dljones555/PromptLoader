@@ -2,9 +2,8 @@
 
 # Overview
 
-6/24/2025 - MCP support in progress. Have checked out [https://www.modelcontextprotocol.io]. I reactoring this to support Prompts and Roots. 
-
-MCP Server support for Prompts will be differnet, and not so much focused on Web API or method annotation, but root source (file://, https://, API, github and cloud prompt SaaS) named prompt support.
+6/24/2025 - MCP support in progress. Have checked out [https://www.modelcontextprotocol.io]. I reactoring this to support Prompts and Roots.
+MCP Server support for Prompts will Roots based (file, github, https:// prompt source) etc. not so much focused on Web API or method annotation, but root source (file://, https://, API, github and cloud prompt SaaS) named prompt support.
 
 Have also done market research on other prompt management offerings out there.
 
@@ -26,7 +25,7 @@ These reflect your business rules and processes, and alignment with your organiz
 ***Let product managers and business analysts share the work with engineers to define these and run evals!***
 
 ## Structured Prompt Management - external prompt management.  
-- Separates prompt from code as management assets
+- Separates prompt from code as knowledge assets
 - Provide convention based approach to AI projects of any type. Comparable to MVC frameworks like RoR
 - Segment prompts by functional or business area
 - Support prompt versioning and source control
