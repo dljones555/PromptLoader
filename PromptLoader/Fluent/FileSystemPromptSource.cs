@@ -17,7 +17,7 @@ namespace PromptLoader.Fluent
         {
             _folder = PathUtils.ResolvePromptPath(folder);
             _cascadeOverride = cascadeOverride;
-            _supportedExtensions = supportedExtensions ?? PathUtils.GetSupportedPromptExtensions();
+            _supportedExtensions = supportedExtensions ?? PathUtils.GetSupportedPromptExtensions(null, null);
         }
 
         public async Task<Dictionary<string, Prompt>> LoadPromptsAsync()
