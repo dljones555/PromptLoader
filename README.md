@@ -9,10 +9,10 @@ Have also done market research on other prompt management offerings out there.
 
 - Prompt and eval tools exist, but don't allow pulling prompts into code for LLM chat completion and agent API code.
 - Some of the prompt authoring tools are more consumer focused and fit the idea of allowing non-engineer roles.
-- There is some vendor lockin potential out there, including with bigtech/cloud AI and startups.
+- There is some vendor lockin potential with prompt management out there across bigtech, AI frontier companies, and startups.
 - LangChain has a pretty complete soluion as does PromptLayer.
 - This library aims to play well with all options in Python and C#.
-- Searching github for functions that load prompts. A lot of inline prompts!
+- Searching github for functions that load prompts. A lot of inline prompts that need cleanup!
 
 **Please consider supporting this project with a GitHub star or sponsorship contribution!**
 
@@ -93,6 +93,6 @@ chain = prompt_set.to_langchain() | ChatOpenAI()
 from openai import OpenAI
 prompt = PromptLoader.load_prompt("system.yml")
 response = client.chat.completions.create(
-    messages=[{"role": "system", "content": prompt.text}]
+    messages=[{"role": "system", "content": prompt.text},{"role": "user": "How do I return the shirt?"}]
 )
 ```
